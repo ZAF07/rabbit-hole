@@ -13,7 +13,8 @@ The internal (canonical) vocabulary is generic, obvious, and stable. The UI/UX v
 | **Piece** | Thread | One self-contained narrative on a single subject (~5 min). |
 | **Connection** | Loose Thread / "Pull this thread" | A curated, directed link from one Piece to a related Piece, carrying its own hook copy. |
 | **Topic** | Spool | A node in the content classification taxonomy; Pieces belong to many. |
-| **Session** | an Unspool (verb: *unspooling*) | A user's continuous journey pulling Connections. |
+| **Session** | an Unspool (verb: *unspooling*) | A single continuous sitting of pulling Connections — the analytics window over a Journey. |
+| **Journey** | — | A User's durable, resumable path — current position, backtrack stack, and the Pieces visited / Connections pulled — spanning Sessions. |
 | **Personal Knowledge Graph** | Tapestry | A User's own trail — the Pieces they've read + the Connections they pulled. Shown in V1; drives personalization in Phase 2. |
 | **Daily Feature** | Today's Thread | The Piece promoted to the day's headline slot. |
 | **Arc** *(V2)* | *(TBD)* | A bounded, finishable journey through a few Pieces toward a stated learning goal. |
@@ -39,11 +40,15 @@ A node in the content classification taxonomy — e.g. *Economics*, or the narro
 _Avoid_: category, subcategory, cluster, tag, domain — these describe a Topic's role or depth, not a separate concept. (UI surface uses "Spool".)
 
 **Session**:
-A user's continuous journey through the Content Graph, pulling one Connection after another — **linear, with backtracking** to try other forks. The ordered Pieces it visits form its *path*, which is **persisted** (the raw substrate for the Personal Knowledge Graph). Session **depth** = the number of *distinct* Pieces visited — the core engagement signal. A Session (the analytics window) is bounded by inactivity or app close; the durable path outlives it and is **resumable** across app opens. See [ADR 0008](docs/adr/0008-sessions-instrumented-from-v1.md).
-_Avoid_: visit, run, trail. (UI surface uses "an Unspool".)
+A single continuous **sitting** in which a User pulls one Connection after another — the **analytics window** over their Journey, *not* the durable path itself. A Session is bounded by inactivity or explicit app close, whichever comes first. The durable Journey **outlives** the Session: resuming after the boundary begins a **new** Session that continues the **same** Journey. See [ADR 0008](docs/adr/0008-sessions-instrumented-from-v1.md).
+_Avoid_: visit, run, trail; and *journey* (the durable path is the Journey — the Session is only its time-bounded window). (UI surface uses "an Unspool".)
+
+**Journey**:
+A User's **durable, resumable path** through the Content Graph: their current position, the **backtrack stack** that lets them step back up the way they came, and the deduped record of the Pieces they have visited and the Connections they have pulled. **Linear, with backtracking** — one advancing thread plus a stack to try other forks, never free-roam across the whole graph. The Journey is **persisted from V1** and **outlives Sessions** (it is resumed across app opens), and it is the raw substrate for the Personal Knowledge Graph. Its **depth** = the number of *distinct* Pieces visited — the ground the User's curiosity has covered; re-reading covered ground never inflates it, pulling a new fork does. See [ADR 0008](docs/adr/0008-sessions-instrumented-from-v1.md).
+_Avoid_: Session (that is the time-bounded window, not the path), trail (the Personal Knowledge Graph), route, history.
 
 **Personal Knowledge Graph**:
-A single per-user entity: the User's accumulated intellectual footprint — the subgraph of the Content Graph they have actually traversed (the Pieces they've read and the Connections they pulled), built from persisted Session paths ([ADR 0008](docs/adr/0008-sessions-instrumented-from-v1.md)). **One asset, two uses:** it is **shown** to the User as their own trail (a V1 feature and intrinsic retention driver — [ADR 0009](docs/adr/0009-retention-earned-not-gamified.md)), and it is **read to personalize** what gets surfaced (a **Phase 2** use of the same asset; Phase 2 may compute derived signals — Topic affinities, depth tolerance — but those are derivations of this one entity, never a separate one). Free in V1; a candidate premium feature later. A per-user artifact — distinct from the global Content Graph shared by all Users, and from the User (the identity).
+A single per-user entity: the User's accumulated intellectual footprint — the subgraph of the Content Graph they have actually traversed (the Pieces they've read and the Connections they pulled), built from their persisted Journey ([ADR 0008](docs/adr/0008-sessions-instrumented-from-v1.md)). **One asset, two uses:** it is **shown** to the User as their own trail (a V1 feature and intrinsic retention driver — [ADR 0009](docs/adr/0009-retention-earned-not-gamified.md)), and it is **read to personalize** what gets surfaced (a **Phase 2** use of the same asset; Phase 2 may compute derived signals — Topic affinities, depth tolerance — but those are derivations of this one entity, never a separate one). Free in V1; a candidate premium feature later. A per-user artifact — distinct from the global Content Graph shared by all Users, and from the User (the identity).
 _Avoid_: Interest Profile (the former name — it implied inference-only and was the source of a real modeling confusion), knowledge graph (bare — risks confusion with the Content Graph), preference graph, curiosity map, taste profile. (UI surface uses "Tapestry".)
 
 **Arc** *(V2 — provisional)*:
