@@ -142,6 +142,28 @@ class InMemoryContentGraphRepository(ContentGraphRepository):
             if piece_id in self._pieces
         }
 
+    def get_topic(self, topic_id: str) -> TopicRead | None:
+        """Fetch a single Topic with its parents.
+
+        Args:
+            topic_id: The Topic identity to resolve.
+
+        Returns:
+            The Topic read model, or None if no such Topic exists.
+        """
+        reads = self._topic_reads([topic_id])
+        return reads[0] if reads else None
+
+    def list_piece_summaries(self) -> tuple[PieceSummary, ...]:
+        """List every stored Piece as an entry-surface summary.
+
+        Returns:
+            One summary per stored Piece, ordered by id.
+        """
+        ordered = sorted(self._pieces)
+        summaries = self.get_piece_summaries(ordered)
+        return tuple(summaries[piece_id] for piece_id in ordered)
+
     def get_piece_summaries(self, piece_ids: Sequence[str]) -> dict[str, PieceSummary]:
         """Fetch entry-surface summaries (teaser, Topics, no body) for Pieces.
 

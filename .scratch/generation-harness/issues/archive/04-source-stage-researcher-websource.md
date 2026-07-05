@@ -1,6 +1,6 @@
 # Source stage real — the Researcher + WebSourcePort (recall-first, citation-chasing)
 
-Status: ready-for-agent
+Status: completed
 Feature: generation-harness
 Blocked by: 03
 
@@ -17,13 +17,18 @@ Tested entirely through a **faked `WebSourcePort`** (canned page content + outli
 
 ## Acceptance criteria
 
-- [ ] The Researcher reaches a **primary source by following a recalled hub's cited link** (via the faked port), not by any search-query call — there is no `search(query)` in the port surface.
-- [ ] A claim whose second independent source **can't be reached** from recalled/chased URLs is **cut, not shipped**; a single-**primary**-source claim survives.
-- [ ] An internal-only uncorroborated claim is **dropped/flagged**, never silently kept.
-- [ ] A **thin source pack fails before** the Draft stage runs.
-- [ ] The grounding ledger records claim → tier → status → sources → refutation verdict, completely.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] The Researcher reaches a **primary source by following a recalled hub's cited link** (via the faked port), not by any search-query call — there is no `search(query)` in the port surface.
+- [x] A claim whose second independent source **can't be reached** from recalled/chased URLs is **cut, not shipped**; a single-**primary**-source claim survives.
+- [x] An internal-only uncorroborated claim is **dropped/flagged**, never silently kept.
+- [x] A **thin source pack fails before** the Draft stage runs.
+- [x] The grounding ledger records claim → tier → status → sources → refutation verdict, completely.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - generation-harness/issues/03 (the Architect's `plan.md` — the Piece concepts to research)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `7af81e040b8b2425c330f3f874ccc206be43fe85`

@@ -251,6 +251,38 @@ class PostgresContentGraphRepository(ContentGraphRepository):
             result[piece_id] = (*result[piece_id], read)
         return result
 
+    def get_topic(self, topic_id: str) -> TopicRead | None:
+        """Fetch a single Topic with its parents.
+
+        Args:
+            topic_id: The Topic identity to resolve.
+
+        Returns:
+            The Topic read model, or None if no such Topic exists.
+        """
+        row = self._conn.execute(
+            "SELECT t.id, t.slug, t.title,"
+            "  COALESCE(array_agg(tp.parent_id ORDER BY tp.parent_id)"
+            "    FILTER (WHERE tp.parent_id IS NOT NULL), '{}') AS parent_ids"
+            " FROM topics t LEFT JOIN topic_parents tp ON tp.child_id = t.id"
+            " WHERE t.id = %s"
+            " GROUP BY t.id, t.slug, t.title",
+            (topic_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return TopicRead(id=row[0], slug=row[1], title=row[2], parent_ids=tuple(row[3]))
+
+    def list_piece_summaries(self) -> tuple[PieceSummary, ...]:
+        """List every stored Piece as an entry-surface summary.
+
+        Returns:
+            One summary per stored Piece, ordered by id.
+        """
+        rows = self._conn.execute("SELECT id FROM pieces ORDER BY id").fetchall()
+        summaries = self.get_piece_summaries([row[0] for row in rows])
+        return tuple(summaries[row[0]] for row in rows)
+
     def get_piece_summaries(self, piece_ids: Sequence[str]) -> dict[str, PieceSummary]:
         """Fetch entry-surface summaries (teaser, Topics, no body) for Pieces.
 

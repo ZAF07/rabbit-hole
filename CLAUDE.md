@@ -13,16 +13,16 @@ The system is **two independent subsystems joined only by the Content Graph** ([
 
 Nothing but **Pieces, Connections, and Topics** crosses the boundary. Keep it that way.
 
-## Current state — greenfield
+## Current state
 
-The **design is complete; implementation has not started.** What exists on disk is the design record (glossary, ADRs, design docs, and the harness's markdown specs). Code, the LangGraph runtime, the database, and the app are still to be built — via `/to-prd` → `/to-issues` → `/implement`.
+The design record is complete, and **two of the three parts are built**: the **Content Graph** (`src/content_graph/` — port + in-memory and Postgres adapters, migrations, docker-compose) and the **generation harness** (`src/harness/` — the full gated pipeline under both runtimes, guardrail evaluators, grounding, human review surface, publish gate, Distiller; see [ADR 0014](docs/adr/0014-harness-code-lives-in-src-harness.md)). The **app** (consumption backend + client) is still to be built — via `/to-prd` → `/to-issues` → `/implement`. No production LLM adapter exists yet; runs are driven through the `LLMPort` (scripted in tests/dev).
 
 ## Read before working (the design record)
 
 | File | What it holds |
 | --- | --- |
 | `CONTEXT.md` | Domain glossary — the canonical vocabulary. Use these terms; don't drift to synonyms listed under *Avoid*. |
-| `docs/adr/0001–0010` | Architecture Decision Records — decisions not to re-litigate. |
+| `docs/adr/0001–0014` | Architecture Decision Records — decisions not to re-litigate. |
 | `docs/experience.md` | Consumption-side design: Piece schema, Content Blocks, Session, Tapestry, retention. |
 | `docs/content-harness.md` | Generation-side design: the pipeline, grounding, learning loop, determinism. |
 | `docs/taxonomy.md` | Seed Topic taxonomy. |
@@ -39,17 +39,19 @@ If your work moves the domain model (new terms/decisions), update `CONTEXT.md` /
 - **The Content Graph is the only coupling** between generation and consumption: generation writes; consumption reads. Neither imports the other.
 - **Client surface** (mobile/web reader): a later decision; the consumption backend is Python + Postgres.
 
-## Intended directory map
+## Directory map
 
 | Path | Purpose |
 | --- | --- |
 | `harness/editorial/` | Editorial DNA + swappable **Voice Profiles** (the taste constitution). |
 | `harness/guardrails/` | Anti-slop + sourcing checks (`piece`, `connection`, `constellation`, `sourcing`). |
-| `harness/agents/` | The 7 agent spec-cards (Architect…Distiller); split to `.claude/agents/` at build. |
-| `harness/src/` *(future)* | The LangGraph pipeline + ports-and-adapters (Python). |
-| `harness/runs/<id>/` *(future)* | Per-run outputs: `plan.md`, `pieces/<id>/…`, `connections.md`, `qa.md`. |
+| `harness/agents/` | The 7 agent spec-cards (Architect…Distiller); `.claude/agents/` is generated from this file. |
+| `harness/manifest.toml` | The shared stage manifest both runtimes read (stages, deliverables, human gates). |
+| `harness/runs/<id>/` | Per-run workspaces (gitignored): `plan.md`, `pieces/<id>/…`, `connections.md`, `qa.md`, `publish/`, `feedback/verdicts.jsonl`. |
+| `src/harness/` | Generation code: the gated pipeline (LangGraph + manifest runner), guardrail evaluators, ports/adapters, review surface, Distiller ([ADR 0014](docs/adr/0014-harness-code-lives-in-src-harness.md)). |
+| `src/content_graph/` | The Content Graph: domain models, `ContentGraphRepository` port, in-memory + Postgres adapters, migrations. |
 | `app/` *(future)* | Consumption backend — reads the Content Graph (Python, ports-and-adapters). |
-| `.claude/agents/`, `.claude/skills/` *(future)* | Subagents + orchestrator skills (from `harness/agents/`). |
+| `.claude/agents/` | Generated Claude Code subagents — regenerate from `harness/agents/README.md`; a drift test guards them. |
 | `docs/adr/`, `CONTEXT.md` | The design record (above). |
 | `.scratch/<feature>/` | Local issue tracker — PRDs + issues as markdown (see `docs/agents/issue-tracker.md`). |
 

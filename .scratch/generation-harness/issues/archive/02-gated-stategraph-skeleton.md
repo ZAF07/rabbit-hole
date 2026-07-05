@@ -1,6 +1,6 @@
 # Walking skeleton — the gated StateGraph runs end-to-end
 
-Status: ready-for-agent
+Status: completed
 Feature: generation-harness
 Blocked by: 01, content-graph/issues/01-03
 
@@ -18,14 +18,19 @@ The pipeline's walking skeleton: the full staged DAG runs end-to-end on a **fixt
 
 ## Acceptance criteria
 
-- [ ] End-to-end run over a fixture Brief with fake LLM + fake WebSource + in-memory ContentGraph writes a constellation that **passes I1–I8** (asserted via the issue-01 constellation evaluator).
-- [ ] A stage **refuses to start** when its prerequisite deliverable is absent (gate discipline test).
-- [ ] Stage 0 refuses to start Stage 1 unless DNA + a placeholder-free Brief exist.
-- [ ] Only Pieces / Connections / Topic tags are written to the graph; a test asserts no generation-only field crosses.
-- [ ] The stage manifest is data, read by the run; stage order is fixed.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] End-to-end run over a fixture Brief with fake LLM + fake WebSource + in-memory ContentGraph writes a constellation that **passes I1–I8** (asserted via the issue-01 constellation evaluator).
+- [x] A stage **refuses to start** when its prerequisite deliverable is absent (gate discipline test).
+- [x] Stage 0 refuses to start Stage 1 unless DNA + a placeholder-free Brief exist.
+- [x] Only Pieces / Connections / Topic tags are written to the graph; a test asserts no generation-only field crosses.
+- [x] The stage manifest is data, read by the run; stage order is fixed.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - generation-harness/issues/01 (guardrail evaluators — the constellation checker asserts the outcome)
 - content-graph/issues/01-03 (the `ContentGraphRepository` port + in-memory fake covering Pieces, Topics, Connections)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `7af81e040b8b2425c330f3f874ccc206be43fe85`

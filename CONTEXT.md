@@ -61,3 +61,31 @@ _Avoid_: knowledge graph, ontology, concept map.
 **User**:
 A person with an account. Kept strictly distinct from their Personal Knowledge Graph — the User is the identity; the Personal Knowledge Graph is their accumulated intellectual trail.
 _Avoid_: reader, member, account, learner.
+
+## Generation-side language
+
+Vocabulary of the content harness. These concepts are **generation-only**: none of them ever crosses into the Content Graph or reaches a reader ([ADR 0006](docs/adr/0006-generation-and-consumption-are-separate.md)).
+
+**Theme Brief**:
+The human-authored input that starts a generation run — a through-line, the target Topics, a Piece count, and optional hints. A run refuses to start on a Brief with unfilled placeholders ([ADR 0003](docs/adr/0003-plan-first-generation.md)).
+_Avoid_: prompt, request, brief (bare — ambiguous with legal/creative briefs elsewhere).
+
+**Constellation**:
+The set of Pieces and Connections one generation run plans, drafts, wires, and QAs **as a whole** — the unit of planning and quality assurance, never of consumption. Readers only ever see the Pieces and Connections a constellation publishes, never the grouping itself.
+_Avoid_: batch, cluster, collection, set (bare).
+
+**Grounding Ledger**:
+The per-Piece record tying every factual claim to its source tier, corroboration status, supporting sources, and refutation verdict ([ADR 0005](docs/adr/0005-closed-book-grounding.md)). The Writer drafts closed-book from its verified claims only.
+_Avoid_: citations, bibliography, sources list.
+
+**Verdict**:
+One human gate action on one review target — **approve**, **edit-approve** (approve after editing the working copy; the machine→human diff is the learning signal), or **reject with a reason** ([ADR 0013](docs/adr/0013-human-review-surface-is-the-file-workspace.md)). Verdicts accumulate append-only per run and are the Distiller's raw material.
+_Avoid_: review, rating, score, feedback (bare).
+
+**Survivor**:
+A Piece still standing after the human Piece gate when others were rejected. The publish step re-wires and re-QAs the survivor set before anything is written; a survivor that cannot be made contract-valid is flagged back to the human, not published ([ADR 0012](docs/adr/0012-publish-gate-rewire-and-reqa-approved-subset.md)).
+_Avoid_: approved piece (vague), remainder, leftover.
+
+**Proposal**:
+The Distiller's output — a *proposed* change to the taste artifacts (banned-phrase additions, new checks, exemplar promotions) rendered as a diff and per-Topic agreement counts. Inert until a human ratifies it; nothing auto-merges ([ADR 0004](docs/adr/0004-human-ratified-learning-loop.md)).
+_Avoid_: update, patch (bare), auto-improvement.

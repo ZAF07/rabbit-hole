@@ -115,6 +115,28 @@ class ContentGraphRepository(ABC):
         """
 
     @abstractmethod
+    def get_topic(self, topic_id: str) -> TopicRead | None:
+        """Fetch a single Topic with its parents.
+
+        Args:
+            topic_id: The Topic identity to resolve.
+
+        Returns:
+            The Topic read model, or None if no such Topic exists.
+        """
+
+    @abstractmethod
+    def list_piece_summaries(self) -> tuple[PieceSummary, ...]:
+        """List every stored Piece as an entry-surface summary.
+
+        The whole-graph survey surface: a writer of the graph reads it to
+        bridge to prior Pieces and avoid duplicating them (ADR 0011).
+
+        Returns:
+            One summary per stored Piece, ordered by id.
+        """
+
+    @abstractmethod
     def get_piece_summaries(self, piece_ids: Sequence[str]) -> dict[str, PieceSummary]:
         """Fetch entry-surface summaries (teaser, Topics, no body) for Pieces.
 

@@ -1,6 +1,6 @@
 # Plan stage real — the Architect designs the constellation (the moat)
 
-Status: ready-for-agent
+Status: completed
 Feature: generation-harness
 Blocked by: 02
 
@@ -15,13 +15,18 @@ Replace the stubbed plan stage with the real **Architect** — the plan-first de
 
 ## Acceptance criteria
 
-- [ ] Given a fixture Brief (through-line + target Topics + piece-count), the Architect emits a `plan.md` with Piece concepts + full Connection skeleton spanning the Brief's target Topics.
-- [ ] The planned skeleton is structurally sound: no dead ends, ≥1 cross-Topic edge per Piece, connected (checked with the constellation evaluator over the plan).
-- [ ] Entry-worthy nodes (J3) are marked.
-- [ ] The Architect calls the ContentGraph **read** surface and does not propose a Piece that duplicates an existing one in a seeded graph.
-- [ ] A Brief with an unfilled placeholder **fails Stage 0** before the Architect runs.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] Given a fixture Brief (through-line + target Topics + piece-count), the Architect emits a `plan.md` with Piece concepts + full Connection skeleton spanning the Brief's target Topics.
+- [x] The planned skeleton is structurally sound: no dead ends, ≥1 cross-Topic edge per Piece, connected (checked with the constellation evaluator over the plan).
+- [x] Entry-worthy nodes (J3) are marked.
+- [x] The Architect calls the ContentGraph **read** surface and does not propose a Piece that duplicates an existing one in a seeded graph.
+- [x] A Brief with an unfilled placeholder **fails Stage 0** before the Architect runs.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - generation-harness/issues/02 (the gated StateGraph, ports, run workspace)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `7af81e040b8b2425c330f3f874ccc206be43fe85`
