@@ -1,0 +1,5 @@
+# One uv project, two packages: harness code lives in `src/harness/`, not `harness/src/`
+
+The directory map originally reserved `harness/src/` for the generation pipeline — a project-within-a-project. At implementation time the code went to **`src/harness/`**, beside `src/content_graph/`, inside the single uv project: one venv, one `ruff` / `mypy src` / `pytest` gate suite covering both subsystems, and the harness↔Content-Graph contract tests run in-process with no packaging gymnastics. The `harness/` directory remains what it always was — the **markdown specs** (Editorial DNA, guardrails, agent roster, `manifest.toml`) that both runtimes read as data, plus the gitignored `harness/runs/<id>/` workspaces.
+
+The [ADR 0006](0006-generation-and-consumption-are-separate.md) boundary is unaffected: it is enforced by import direction and the port surface (`content_graph` never imports `harness`; the harness touches the graph only through `ContentGraphRepository`), not by process or repository separation. If generation ever needs its own deployment cadence, splitting `src/harness/` into its own project is a packaging change, not a domain change.

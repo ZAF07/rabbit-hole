@@ -1,0 +1,119 @@
+# The shared stage manifest — stage → agent → deliverable → prerequisite → gate.
+# Data, not code (ADR 0010): the single source of truth both runtimes read,
+# alongside the markdown specs in this directory. Paths are relative to the
+# run workspace `harness/runs/<id>/`; `{piece_id}` expands per planned Piece.
+#
+# The deliverable-on-disk IS the gate: a stage refuses to start unless every
+# prerequisite artifact exists (all `{piece_id}` expansions, for once-stages).
+
+[[stages]]
+number = 0
+name = "gate"
+agent = ""
+fan_out = "once"
+deliverables = ["goal.md"]
+prerequisites = []
+gate = "Editorial DNA + Theme Brief present, no unfilled placeholders"
+
+[[stages]]
+number = 1
+name = "plan"
+agent = "architect"
+fan_out = "once"
+deliverables = ["plan.md"]
+prerequisites = ["goal.md"]
+gate = "plan.md present, no placeholders, structural invariants satisfiable; human approves at the plan gate"
+
+[[stages]]
+number = 2
+name = "source"
+agent = "researcher"
+fan_out = "per_piece"
+deliverables = ["pieces/{piece_id}/sources.md", "pieces/{piece_id}/grounding.json"]
+prerequisites = ["plan.md"]
+gate = "vetted claim pack + complete grounding ledger; a thin pack fails loud before the Writer"
+
+[[stages]]
+number = 3
+name = "draft"
+agent = "writer"
+fan_out = "per_piece"
+deliverables = ["pieces/{piece_id}/draft.md"]
+prerequisites = ["pieces/{piece_id}/sources.md", "pieces/{piece_id}/grounding.json"]
+gate = "draft present, blocks well-formed, every assertion traceable to the claim pack"
+
+[[stages]]
+number = 4
+name = "edit"
+agent = "editor"
+fan_out = "per_piece"
+deliverables = ["pieces/{piece_id}/piece.md"]
+prerequisites = ["pieces/{piece_id}/draft.md"]
+gate = "passes all piece guardrails and the 4.5 grounding check, or is escalated"
+
+[[stages]]
+number = 5
+name = "wire"
+agent = "weaver"
+fan_out = "once"
+deliverables = ["connections.md"]
+prerequisites = ["plan.md", "pieces/{piece_id}/piece.md"]
+gate = "every planned Connection realized with a passing per-origin hook; zero dead ends"
+
+[[stages]]
+number = 6
+name = "qa"
+agent = "reviewer"
+fan_out = "once"
+deliverables = ["qa.md"]
+prerequisites = ["connections.md", "pieces/{piece_id}/piece.md"]
+gate = "Tier-1 I1–I8 binary pass; Tier-2 J1–J5 judged, flags resolved or escalated"
+
+# Post-human-gate publish steps (ADR 0012) — the write is not a bare insert.
+
+[[stages]]
+number = 7
+name = "rewire"
+agent = "weaver"
+fan_out = "once"
+deliverables = ["publish/connections.md"]
+prerequisites = ["qa.md"]
+gate = "approved survivors re-wired; I4/I5/I6 hold on the survivor set"
+
+[[stages]]
+number = 8
+name = "reqa"
+agent = "reviewer"
+fan_out = "once"
+deliverables = ["publish/qa.md"]
+prerequisites = ["publish/connections.md"]
+gate = "Tier-1 graph invariants re-verified over the survivors; failures flagged back to the human"
+
+[[stages]]
+number = 9
+name = "write"
+agent = ""
+fan_out = "once"
+deliverables = ["publish/published.json"]
+prerequisites = ["publish/qa.md"]
+gate = "final wired-constellation approval given; atomic write of only the re-validated survivor set"
+
+# The three human gates (ADR 0013) — shared substrate, identical under both runtimes.
+
+[[human_gates]]
+name = "plan"
+after_stage = "plan"
+target = "plan.md"
+per_piece = false
+
+[[human_gates]]
+name = "piece"
+after_stage = "qa"
+target = "pieces/{piece_id}/piece.md"
+per_piece = true
+
+[[human_gates]]
+name = "constellation"
+after_stage = "reqa"
+target = "publish/connections.md"
+per_piece = false
