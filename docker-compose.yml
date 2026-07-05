@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: rabbit-hole-postgres
+    environment:
+      POSTGRES_USER: rabbit
+      POSTGRES_PASSWORD: rabbit
+      POSTGRES_DB: content_graph
+    ports:
+      - "5433:5432"
+    volumes:
+      - content_graph_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rabbit -d content_graph"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  content_graph_pgdata:
