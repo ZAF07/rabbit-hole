@@ -1,6 +1,6 @@
 # The Daily Feature — a date-keyed pointer to a Piece
 
-Status: ready-for-agent
+Status: completed
 Feature: content-graph
 Blocked by: 01
 
@@ -13,12 +13,17 @@ The app's front door as an **assignable scheduling role**, not a kind of Piece: 
 
 ## Acceptance criteria
 
-- [ ] `set_daily_feature(date, piece)` then `get_daily_feature()` returns the pointed-to Piece.
-- [ ] Re-assigning the Daily Feature for a date replaces the pointer (no duplicate rows).
-- [ ] `get_daily_feature` returns a Piece read model with no generation-only fields.
-- [ ] Behaviors pass against **both** fake and Postgres-in-Docker.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] `set_daily_feature(date, piece)` then `get_daily_feature()` returns the pointed-to Piece.
+- [x] Re-assigning the Daily Feature for a date replaces the pointer (no duplicate rows).
+- [x] `get_daily_feature` returns a Piece read model with no generation-only fields.
+- [x] Behaviors pass against **both** fake and Postgres-in-Docker.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - content-graph/issues/01 (port, Piece, adapters, contract-test harness)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `9a1f8e57077a577cf522916f54cd3ddd6138054a`

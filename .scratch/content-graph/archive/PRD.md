@@ -1,6 +1,6 @@
 # PRD: The Content Graph — shared store & repository port
 
-Status: ready-for-agent
+Status: completed
 Feature: content-graph
 Depends on: — (foundational; `generation-harness` and `consumption-app` both depend on this)
 
@@ -111,3 +111,8 @@ Because the store sits behind the port, **Docker (local) ↔ Supabase (scale) is
 - This single port is the literal seam of [ADR 0006](../../docs/adr/0006-generation-and-consumption-are-separate.md). The team accepted (in PRD scoping) that a single shared port keeps the read/write split a **convention** rather than a compiler-enforced wall; the mitigation is that each subsystem's composition wires only its own half, and code review guards the rule. If the convention ever proves leaky, splitting into `ContentGraphReader` + `ContentGraphWriter` over the same schema is a non-breaking refactor.
 - Internal ↔ branded vocabulary map is authoritative in [CONTEXT.md](../../CONTEXT.md); nothing here imports branded strings ([ADR 0001](../../docs/adr/0001-decouple-internal-and-ui-vocabulary.md)).
 - Seed Topics for first content come from [taxonomy.md](../../docs/taxonomy.md) (the "systems of the modern world" V1 cluster); loading them is a small write-path task.
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: <to be filled in manually>

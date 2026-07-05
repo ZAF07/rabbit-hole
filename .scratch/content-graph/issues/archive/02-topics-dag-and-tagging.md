@@ -1,6 +1,6 @@
 # Topics as a multi-parent DAG + Piece tagging
 
-Status: ready-for-agent
+Status: completed
 Feature: content-graph
 Blocked by: 01
 
@@ -14,13 +14,18 @@ Add the Topic taxonomy to the Content Graph as a shallow **multi-parent DAG**, a
 
 ## Acceptance criteria
 
-- [ ] A Topic with **several parents** round-trips — the DAG survives (not flattened to one parent).
-- [ ] A Piece tagged with **several Topics** round-trips; `get_topics_for` returns each Piece's Topics with their parents.
-- [ ] `upsert_topic` / `set_topic_parents` are idempotent by identity (re-running the seed load creates no duplicates).
-- [ ] Seed Topics from `taxonomy.md` load into the store via the write surface.
-- [ ] The Topic + tagging behaviors pass against **both** the fake and Postgres-in-Docker.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] A Topic with **several parents** round-trips — the DAG survives (not flattened to one parent).
+- [x] A Piece tagged with **several Topics** round-trips; `get_topics_for` returns each Piece's Topics with their parents.
+- [x] `upsert_topic` / `set_topic_parents` are idempotent by identity (re-running the seed load creates no duplicates).
+- [x] Seed Topics from `taxonomy.md` load into the store via the write surface.
+- [x] The Topic + tagging behaviors pass against **both** the fake and Postgres-in-Docker.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - content-graph/issues/01 (the port, fake, Postgres adapter, and contract-test harness)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `9a1f8e57077a577cf522916f54cd3ddd6138054a`

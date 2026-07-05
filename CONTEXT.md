@@ -51,7 +51,7 @@ A **bounded, curated, finishable** journey through a small set of Pieces toward 
 _Avoid_: course, curriculum, module, lesson (the product is lighter than a course), playlist.
 
 **Daily Feature**:
-The single Piece promoted into the day's headline slot — the app's front door on any given day. A curation/scheduling role assigned to a Piece, not a distinct kind of content.
+The single Piece promoted into the day's headline slot — the app's front door on any given day. A curation/scheduling role assigned to a Piece, not a distinct kind of content. The *current* Daily Feature on a given day is the most recently assigned one **on or before** that day — a day with no assignment inherits the previous one rather than leaving the front door empty, and a future-dated assignment is never surfaced early.
 _Avoid_: daily pick, featured article, home card. (UI surface uses "Today's Thread".)
 
 **Content Graph**:

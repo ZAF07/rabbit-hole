@@ -1,6 +1,6 @@
 # Walking skeleton — a Piece round-trips through the ContentGraphRepository port
 
-Status: ready-for-agent
+Status: completed
 Feature: content-graph
 Blocked by: none
 
@@ -21,15 +21,20 @@ The read model returned by `get_piece` must **exclude `run_id`** and any generat
 
 ## Acceptance criteria
 
-- [ ] A Piece with an ordered mix of the four **text** Content Block kinds round-trips: read back preserves block **order** and **kind/payload** exactly.
-- [ ] `upsert_piece` is **idempotent by Piece identity** — re-writing the same Piece creates no duplicate rows.
-- [ ] The `get_piece` read model contains **no `run_id`** (and no other generation-only field); a test asserts this.
-- [ ] The schema **reserves** `image`/`gif`/`diagram` block kinds; writing one is out of scope for V1 but the kind is a valid enum value (adding visuals later is a data change, not a migration).
-- [ ] The identical contract-test suite passes against **both** the in-memory fake **and** Postgres-in-Docker.
-- [ ] Store adapter is chosen by connection config; no DSN/secret is hardcoded.
-- [ ] Schema is created via a versioned forward **migration**.
-- [ ] `ruff`, `mypy`, and `pytest` all pass.
+- [x] A Piece with an ordered mix of the four **text** Content Block kinds round-trips: read back preserves block **order** and **kind/payload** exactly.
+- [x] `upsert_piece` is **idempotent by Piece identity** — re-writing the same Piece creates no duplicate rows.
+- [x] The `get_piece` read model contains **no `run_id`** (and no other generation-only field); a test asserts this.
+- [x] The schema **reserves** `image`/`gif`/`diagram` block kinds; writing one is out of scope for V1 but the kind is a valid enum value (adding visuals later is a data change, not a migration).
+- [x] The identical contract-test suite passes against **both** the in-memory fake **and** Postgres-in-Docker.
+- [x] Store adapter is chosen by connection config; no DSN/secret is hardcoded.
+- [x] Schema is created via a versioned forward **migration**.
+- [x] `ruff`, `mypy`, and `pytest` all pass.
 
 ## Blocked by
 
 - None - can start immediately
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `9a1f8e57077a577cf522916f54cd3ddd6138054a`
