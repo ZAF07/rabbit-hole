@@ -1,6 +1,6 @@
 # The Tapestry — the reader's Personal Knowledge Graph
 
-Status: ready-for-agent
+Status: completed
 Feature: consumption-app
 Blocked by: 02
 
@@ -16,12 +16,17 @@ The V1 retention asset the reader **owns**: a navigable visual node-graph of eve
 
 ## Acceptance criteria
 
-- [ ] `GetTapestry` returns the deduped union of paths: nodes = distinct Pieces read, edges = Connections pulled, clustered by Topic.
-- [ ] Tapping a node resolves to its Piece as a re-entry point (reread / pull a different fork).
-- [ ] The Tapestry is **seeded by the first Daily Feature** and grows across Sessions.
-- [ ] Re-reading a Piece already in the trail does **not** add a duplicate node or otherwise inflate the graph.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] `GetTapestry` returns the deduped union of paths: nodes = distinct Pieces read, edges = Connections pulled, clustered by Topic.
+- [x] Tapping a node resolves to its Piece as a re-entry point (reread / pull a different fork).
+- [x] The Tapestry is **seeded by the first Daily Feature** and grows across Sessions.
+- [x] Re-reading a Piece already in the trail does **not** add a duplicate node or otherwise inflate the graph.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - consumption-app/issues/02 (the persisted Session paths the Tapestry is the union of)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `46cfb47c60352c4929377ca5f4e395c1ffdfd869`

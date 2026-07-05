@@ -1,6 +1,6 @@
 # Walking skeleton — Daily Feature → Read Piece → connection previews
 
-Status: ready-for-agent
+Status: completed
 Feature: consumption-app
 Blocked by: content-graph/issues/01-04
 
@@ -16,14 +16,19 @@ The reader backend's walking skeleton: a reader can land on the Daily Feature, r
 
 ## Acceptance criteria
 
-- [ ] `GetDailyFeature` returns an entry-worthy Piece **with its `teaser`**.
-- [ ] `ReadPiece` returns ordered Content Blocks + connection previews, each with `hook` + joined destination `title`/`topics`.
-- [ ] Optionally peeking at a Piece's onward Connections up front (Topics + hooks) works before reading begins.
-- [ ] Branded strings render **only** from the presentation vocabulary module; a test asserts the domain/API layer imports no branded string.
-- [ ] A boundary test asserts the reader never depends on a generation-only field (`run_id`, constellation).
-- [ ] The loop is exercised through the app-service interface over the in-memory ContentGraph fake + fixture constellation.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] `GetDailyFeature` returns an entry-worthy Piece **with its `teaser`**.
+- [x] `ReadPiece` returns ordered Content Blocks + connection previews, each with `hook` + joined destination `title`/`topics`.
+- [x] Optionally peeking at a Piece's onward Connections up front (Topics + hooks) works before reading begins.
+- [x] Branded strings render **only** from the presentation vocabulary module; a test asserts the domain/API layer imports no branded string.
+- [x] A boundary test asserts the reader never depends on a generation-only field (`run_id`, constellation).
+- [x] The loop is exercised through the app-service interface over the in-memory ContentGraph fake + fixture constellation.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - content-graph/issues/01-04 (read surface: Pieces + blocks, Topics, Connections/previews, Daily Feature — and the in-memory fake to seed a fixture constellation)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `46cfb47c60352c4929377ca5f4e395c1ffdfd869`

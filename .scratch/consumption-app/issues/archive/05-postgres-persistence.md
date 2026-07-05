@@ -1,6 +1,6 @@
 # Postgres persistence — real user / session / path adapters
 
-Status: ready-for-agent
+Status: completed
 Feature: consumption-app
 Blocked by: 03, 04
 
@@ -16,13 +16,18 @@ This is the consumption side's reuse of the content-graph seam — the reader's 
 
 ## Acceptance criteria
 
-- [ ] User / Session / path behavior passes against **both** the in-memory fakes **and** Postgres-in-Docker (one shared suite).
-- [ ] `PullConnection` / `Backtrack` / `ResumeSession` / `GetTapestry` all round-trip through the Postgres adapters.
-- [ ] Schema is created via versioned forward migrations; store selected by config; no secret hardcoded.
-- [ ] The reader still reads the shared Content Graph only through its read surface (these adapters are the reader's own tables).
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] User / Session / path behavior passes against **both** the in-memory fakes **and** Postgres-in-Docker (one shared suite).
+- [x] `PullConnection` / `Backtrack` / `ResumeSession` / `GetTapestry` all round-trip through the Postgres adapters.
+- [x] Schema is created via versioned forward migrations; store selected by config; no secret hardcoded.
+- [x] The reader still reads the shared Content Graph only through its read surface (these adapters are the reader's own tables).
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - consumption-app/issues/03 (Session boundary + resume — the session/path shapes to persist)
 - consumption-app/issues/04 (Tapestry — its read model must be stable before persisting)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `46cfb47c60352c4929377ca5f4e395c1ffdfd869`

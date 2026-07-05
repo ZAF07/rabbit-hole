@@ -1,6 +1,6 @@
 # Identity + linear Session path — pull a thread, backtrack, depth
 
-Status: ready-for-agent
+Status: completed
 Feature: consumption-app
 Blocked by: 01
 
@@ -16,14 +16,19 @@ Give the reader an identity and a persisted journey: a single advancing thread w
 
 ## Acceptance criteria
 
-- [ ] `PullConnection` advances to the destination and appends it to the path.
-- [ ] `Backtrack` pops to the prior Piece and then permits pulling a **different** Connection from it (alternative branch).
-- [ ] Backtracking behaves like a **stack** (returns the way it came), not a teleport.
-- [ ] **Depth counts distinct Pieces** — re-reading a seen Piece does not increase it; pulling a new fork does.
-- [ ] There is no API for arbitrary free-roam jumps.
-- [ ] The path is persisted per user via the (fake) session/user repos.
-- [ ] `ruff`, `mypy`, `pytest` pass.
+- [x] `PullConnection` advances to the destination and appends it to the path.
+- [x] `Backtrack` pops to the prior Piece and then permits pulling a **different** Connection from it (alternative branch).
+- [x] Backtracking behaves like a **stack** (returns the way it came), not a teleport.
+- [x] **Depth counts distinct Pieces** — re-reading a seen Piece does not increase it; pulling a new fork does.
+- [x] There is no API for arbitrary free-roam jumps.
+- [x] The path is persisted per user via the (fake) session/user repos.
+- [x] `ruff`, `mypy`, `pytest` pass.
 
 ## Blocked by
 
 - consumption-app/issues/01 (the read use-cases + app-service boundary the journey advances over)
+
+## Completion
+
+- Completed: 2026-07-05
+- Commit: `46cfb47c60352c4929377ca5f4e395c1ffdfd869`
