@@ -8,7 +8,7 @@ Blocked by: 01
 
 Give the reader an identity and a persisted journey: a single advancing thread with a backtrack stack (not free-roam), the raw substrate the Tapestry will later render ([ADR 0008](../../../docs/adr/0008-sessions-instrumented-from-v1.md)).
 
-- **Ports + in-memory fakes:** a `UserRepository` / identity port and a `SessionRepository` (durable path + backtrack stack).
+- **Ports + in-memory fakes:** a `UserRepository` / identity port and a `SessionRepository` (durable path + backtrack stack). Identity is **anonymous & device-issued** — an opaque `user_id`, **no accounts in V1** ([ADR 0015](../../../docs/adr/0015-one-backend-deployable-http-api.md)); the HTTP-edge minting + token lands in issue 06.
 - Use-cases: `PullConnection` advances the path to the destination Piece and **appends** it; `Backtrack` pops the stack to the prior Piece (return the way you came, stack semantics) and permits pulling a **different** outbound Connection from there.
 - **No arbitrary free-roam jumps** across the whole graph in V1 — the experience is a guided journey, not a search box.
 - **Session depth = distinct Pieces visited** (deduped): re-reading a seen Piece does **not** increase depth; popping back to pull a new fork does.
