@@ -67,6 +67,12 @@ The reader's **path is persisted from V1** — the raw substrate for the **Tapes
 - **Ports:** the `ContentGraphRepository` **read surface** (from `content-graph`); a `SessionRepository` (durable path + backtrack stack + analytics-Session boundary); a `UserRepository` / identity port.
 - **Adapters:** Postgres for the user/session/path tables; the shared Content Graph read adapter.
 - A **presentation vocabulary module** — the app's only source of branded strings, an i18n-style bundle keyed by internal term (`vocab.piece.one → "Thread"`, `vocab.interestProfile → "Tapestry"`, …). UI renders from it; domain/API never import it ([ADR 0001](../../docs/adr/0001-decouple-internal-and-ui-vocabulary.md)).
+- The **HTTP API** — **one FastAPI app** (the `src/api/` composition root) mounting a **reader router** (the six use-cases above) and an **admin router** (triggers a generation run, async / non-blocking). Response DTOs carry **internal vocabulary only** and only Pieces/Connections/Topics fields — never branded strings, `run_id`, or constellation. Readers get **anonymous, device-issued identity** (opaque `user_id` + token minted on first contact; no login/email/accounts in V1). The reader and generation modules never import each other; both reach Postgres/LLM/web only through their ports ([ADR 0015](../../docs/adr/0015-one-backend-deployable-http-api.md), [ADR 0006](../../docs/adr/0006-generation-and-consumption-are-separate.md)).
+
+**Backend shape** ([ADR 0015](../../docs/adr/0015-one-backend-deployable-http-api.md))
+- The whole backend is **one deployable** — one uv project, one venv, one Postgres — that both serves reader clients and hosts the generation harness as an in-process module. Not microservices.
+- Generation is **triggered over HTTP** (admin router) but **runs in-process as a background task**: the trigger returns immediately and the multi-minute run never blocks reader traffic.
+- The generation↔consumption boundary ([ADR 0006](../../docs/adr/0006-generation-and-consumption-are-separate.md)) is kept by **import direction + the port surface**, which co-hosting does not weaken ([ADR 0014](../../docs/adr/0014-harness-code-lives-in-src-harness.md)).
 
 **Session model** ([ADR 0008](../../docs/adr/0008-sessions-instrumented-from-v1.md))
 - Shape: **linear path with backtracking** — a single advancing thread plus a stack to step back and try another fork. Not free-roam.
@@ -109,7 +115,7 @@ The reader's **path is persisted from V1** — the raw substrate for the **Tapes
 - **Visual block rendering** — text-only V1; visual slots reserved but empty ([ADR 0007](../../docs/adr/0007-visual-provenance-sourced-or-data-grounded.md)).
 - **Paywall / premium** — the Tapestry is free in V1 (a candidate premium feature later).
 - **Gamification of any kind** — not deferred, *rejected* ([ADR 0009](../../docs/adr/0009-retention-earned-not-gamified.md)).
-- **The client UI framework and the app's final name** — a later decision; this PRD is the consumption backend + its API. A map/free-roam view is a possible Phase-2 flourish.
+- **The client UI framework and the app's final name** — a later decision; the FE (mobile + web) that *renders* these responses is deferred. **The HTTP API those clients call is in scope** — one FastAPI app with reader + admin routers ([ADR 0015](../../docs/adr/0015-one-backend-deployable-http-api.md)). A map/free-roam view is a possible Phase-2 flourish.
 - **Anything generation** — the pipeline, grounding, constellation shape.
 
 ## Further Notes
