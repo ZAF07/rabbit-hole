@@ -9,20 +9,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 The system is **two independent subsystems joined only by the Content Graph** ([ADR 0006](docs/adr/0006-generation-and-consumption-are-separate.md)):
 
 - **Generation** — the content **harness** (`harness/`): an agentic pipeline that generates, grounds, and wires Pieces, Connections, and hooks, and writes them into the Content Graph. It knows nothing about users or the app.
-- **Consumption** — the **app** (`app/`, future): the reader experience. It reads *only* Pieces and Connections from the Content Graph. It knows nothing about how content was made.
+- **Consumption** — the **app** (`src/consumption/` + `src/api/`): the reader experience. It reads *only* Pieces and Connections from the Content Graph. It knows nothing about how content was made.
 
 Nothing but **Pieces, Connections, and Topics** crosses the boundary. Keep it that way.
 
 ## Current state
 
-The design record is complete, and **two of the three parts are built**: the **Content Graph** (`src/content_graph/` — port + in-memory and Postgres adapters, migrations, docker-compose) and the **generation harness** (`src/harness/` — the full gated pipeline under both runtimes, guardrail evaluators, grounding, human review surface, publish gate, Distiller; see [ADR 0014](docs/adr/0014-harness-code-lives-in-src-harness.md)). The **app** (consumption backend + client) is still to be built — via `/to-prd` → `/to-issues` → `/implement`. No production LLM adapter exists yet; runs are driven through the `LLMPort` (scripted in tests/dev).
+The design record is complete, and **all three subsystems' backends are built**: the **Content Graph** (`src/content_graph/` — port + in-memory and Postgres adapters, migrations, docker-compose), the **generation harness** (`src/harness/` — the full gated pipeline under both runtimes, guardrail evaluators, grounding, human review surface, publish gate, Distiller; see [ADR 0014](docs/adr/0014-harness-code-lives-in-src-harness.md)), and the **consumption backend** (`src/consumption/` app-service + `src/api/` — the one FastAPI deployable with the reader router and the async admin generation-trigger; see [ADR 0015](docs/adr/0015-one-backend-deployable-http-api.md)). What remains is the **reader client** (the mobile/web FE that renders these responses). No production LLM adapter exists yet; runs are driven through the `LLMPort` (scripted in tests/dev), so the admin generation-trigger ships dormant until a real adapter is wired.
 
 ## Read before working (the design record)
 
 | File | What it holds |
 | --- | --- |
 | `CONTEXT.md` | Domain glossary — the canonical vocabulary. Use these terms; don't drift to synonyms listed under *Avoid*. |
-| `docs/adr/0001–0014` | Architecture Decision Records — decisions not to re-litigate. |
+| `docs/adr/0001–0015` | Architecture Decision Records — decisions not to re-litigate. |
 | `docs/experience.md` | Consumption-side design: Piece schema, Content Blocks, Session, Tapestry, retention. |
 | `docs/content-harness.md` | Generation-side design: the pipeline, grounding, learning loop, determinism. |
 | `docs/taxonomy.md` | Seed Topic taxonomy. |
@@ -50,7 +50,8 @@ If your work moves the domain model (new terms/decisions), update `CONTEXT.md` /
 | `harness/runs/<id>/` | Per-run workspaces (gitignored): `plan.md`, `pieces/<id>/…`, `connections.md`, `qa.md`, `publish/`, `feedback/verdicts.jsonl`. |
 | `src/harness/` | Generation code: the gated pipeline (LangGraph + manifest runner), guardrail evaluators, ports/adapters, review surface, Distiller ([ADR 0014](docs/adr/0014-harness-code-lives-in-src-harness.md)). |
 | `src/content_graph/` | The Content Graph: domain models, `ContentGraphRepository` port, in-memory + Postgres adapters, migrations. |
-| `app/` *(future)* | Consumption backend — reads the Content Graph (Python, ports-and-adapters). |
+| `src/consumption/` | Consumption backend: the reader use-cases (app-service), domain, ports, in-memory + Postgres adapters, presentation vocabulary. |
+| `src/api/` | The single backend deployable — one FastAPI app: reader router + async admin generation-trigger, response DTOs, anonymous identity ([ADR 0015](docs/adr/0015-one-backend-deployable-http-api.md)). |
 | `.claude/agents/` | Generated Claude Code subagents — regenerate from `harness/agents/README.md`; a drift test guards them. |
 | `docs/adr/`, `CONTEXT.md` | The design record (above). |
 | `.scratch/<feature>/` | Local issue tracker — PRDs + issues as markdown (see `docs/agents/issue-tracker.md`). |
