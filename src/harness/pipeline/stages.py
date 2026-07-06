@@ -6,7 +6,11 @@ job through the ports, and writes its deliverable — which is the next
 stage's gate.
 """
 
-from collections.abc import Iterable, Sequence
+import json
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from threading import Lock as _Lock
 
 from content_graph.domain.read_models import PieceSummary
 from harness.domain.artifacts import ConstellationArtifact, PieceArtifact, WiredConnection
@@ -49,7 +53,7 @@ from harness.pipeline.decode import (
     decode_piece_payload,
     decode_plan,
 )
-from harness.ports.llm import LLMRequest
+from harness.ports.llm import LLMRequest, ToolSpec
 from harness.ports.web_source import FetchedPage
 
 GOAL = "goal.md"
@@ -104,6 +108,77 @@ def piece_path(piece_id: str) -> str:
         The relative path.
     """
     return f"pieces/{piece_id}/piece.md"
+
+
+def failure_path(piece_id: str) -> str:
+    """Workspace path of a Piece's failure marker.
+
+    A fan-out stage records a Piece that failed its bar here (its failure
+    code) rather than aborting the whole run, so the human sees every failed
+    Piece in one review pass.
+
+    Args:
+        piece_id: The Piece.
+
+    Returns:
+        The relative path.
+    """
+    return f"pieces/{piece_id}/failure.md"
+
+
+def has_failed(ctx: RunContext, piece_id: str) -> bool:
+    """Whether a Piece carries a recorded failure marker.
+
+    Args:
+        ctx: The run context.
+        piece_id: The Piece.
+
+    Returns:
+        True if the Piece failed a bar in an earlier (or this) stage.
+    """
+    return ctx.workspace.exists(failure_path(piece_id))
+
+
+def _record_failure(ctx: RunContext, piece_id: str, code: str, message: str) -> None:
+    """Persist a Piece's failure code + message as its review marker.
+
+    Args:
+        ctx: The run context.
+        piece_id: The failed Piece.
+        code: The failure code (the exception class name).
+        message: The failure detail.
+    """
+    ctx.workspace.write(
+        failure_path(piece_id),
+        f"# Piece failed its bar\n\ncode: {code}\n\n{message}\n",
+    )
+
+
+def _fan_out[T](ctx: RunContext, items: Sequence[T], work: Callable[[T], None]) -> None:
+    """Run per-Piece work concurrently under the ``fan_out`` bound (a barrier).
+
+    Every item is processed before returning (a within-stage barrier), so the
+    deliverable-on-disk gate and resume idempotence hold exactly as in the
+    serial pipeline. ``fan_out == 1`` (or a single item) runs serially.
+    ``work`` is expected to collect a Piece's own *bar* failure (writing a
+    marker); any exception it does not handle is a genuine bug and is
+    re-raised after the barrier.
+
+    Args:
+        ctx: The run context.
+        items: The per-Piece work items.
+        work: The per-item worker.
+    """
+    workers = max(1, ctx.config.fan_out)
+    ordered = list(items)
+    if workers == 1 or len(ordered) <= 1:
+        for item in ordered:
+            work(item)
+        return
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(work, item) for item in ordered]
+        for future in futures:
+            future.result()
 
 
 def expanded_prerequisites(stage: StageSpec, piece_ids: Iterable[str]) -> list[str]:
@@ -313,31 +388,70 @@ def _assert_plan_sound(plan: ConstellationPlan, brief: ThemeBrief) -> None:
         raise ContractViolationError("plan marks no entry-worthy node (J3)")
 
 
-def _chase_citations(ctx: RunContext, roots: Iterable[str]) -> dict[str, FetchedPage]:
-    """Fetch recalled URLs and follow their cited links, bounded (ADR 0011).
+def _navigate_sources(
+    ctx: RunContext, concept: PieceConcept, sourcing_spec: str, roots: Sequence[str]
+) -> dict[str, FetchedPage]:
+    """Navigate cited outlinks toward primary sources via a bounded agent.
+
+    The Researcher agent follows the recalled hub's cited outlinks the way a
+    person following footnotes would (its ``fetch`` tool wraps the existing
+    ``WebSourcePort.fetch`` — no ``search``, ADR 0011). The agent carries
+    ``sourcing.md`` (incl. its Navigation section) as its authored
+    instructions; ``step_limit`` bounds the walk. Every page the agent reaches
+    is captured here as a side effect, so the deterministic assess /
+    corroborate / refute checks downstream stay the arbiter of admission.
 
     Args:
         ctx: The run context.
-        roots: The recall-proposed candidate URLs.
+        concept: The planned Piece being sourced.
+        sourcing_spec: The sourcing guardrail text (the agent's instructions).
+        roots: The recall-proposed candidate hub URLs to start from.
 
     Returns:
-        URL → fetched page, for every page reached within the bounds.
+        URL → fetched page, for every page the agent reached.
     """
-    fetched: dict[str, FetchedPage] = {}
-    frontier = [(url, 0) for url in roots]
-    while frontier:
-        url, depth = frontier.pop(0)
-        if url in fetched:
-            continue
-        page = ctx.web.fetch(url)
+    reached: dict[str, FetchedPage] = {}
+
+    def fetch_run(args: Mapping[str, object]) -> str:
+        url = str(args["url"])
+        page = reached.get(url)
+        if page is None and url not in reached:
+            page = ctx.web.fetch(url)
+            if page is not None:
+                reached[url] = page
         if page is None:
-            continue
-        fetched[url] = page
-        if depth < ctx.config.citation_depth:
-            frontier.extend(
-                (outlink, depth + 1) for outlink in page.outlinks[: ctx.config.citation_limit]
-            )
-    return fetched
+            return json.dumps({"url": url, "error": "unreachable"})
+        return json.dumps({"url": url, "content": page.content, "outlinks": list(page.outlinks)})
+
+    fetch_tool = ToolSpec(
+        name="fetch",
+        description=(
+            "Fetch one URL's readable content and its cited outbound links. "
+            "Follow citation/footnote outlinks toward the primary tier; there "
+            "is no search — navigate from the given candidate URLs."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {"url": {"type": "string"}},
+            "required": ["url"],
+        },
+        run=fetch_run,
+    )
+    ctx.llm.run_agent(
+        LLMRequest(
+            purpose="researcher.navigate",
+            instructions=sourcing_spec,
+            payload={
+                "piece_id": concept.id,
+                "title": concept.title,
+                "premise": concept.premise,
+                "candidate_urls": list(roots),
+            },
+        ),
+        [fetch_tool],
+        step_limit=ctx.config.agent_step_limit,
+    )
+    return reached
 
 
 def _snapshot_pages(ctx: RunContext, piece_id: str, pages: dict[str, FetchedPage]) -> None:
@@ -421,37 +535,55 @@ def _render_claim_pack(piece_id: str, ledger: GroundingLedger) -> str:
 
 
 def run_stage_source(ctx: RunContext) -> None:
-    """Stage 2 — the closed-book Researcher, per planned Piece.
+    """Stage 2 — the closed-book Researcher, per planned Piece (fanned out).
 
-    Harvest (recall proposes claims + candidate URLs) → fetch + bounded
-    citation-chasing → Vet/assess each page → Corroborate against the bar →
-    Refute survivors. A thin pack fails loud here, before the Writer.
+    Harvest (recall proposes claims + candidate URLs) → agentic navigation →
+    Vet/assess each page → Corroborate against the bar → Refute survivors.
+    Pieces are researched concurrently under the ``fan_out`` bound; the stage
+    finishes every Piece before surfacing any thin-pack failure, so the human
+    sees all the run's research problems in one pass rather than one at a
+    time. A thin Piece dies at research, not in prose: unlike an Edit-bar
+    failure (which has a best-effort draft to route into the piece gate), a
+    thin Piece has no vetted claim pack to draft from, so research failures
+    are fatal to the run — reported together, not routed onward.
 
     Args:
         ctx: The run context.
 
     Raises:
-        ThinSourcePackError: If a Piece's verified claims fall below the bar.
+        ThinSourcePackError: If any Piece's verified claims fall below the bar
+            (reported for every thin Piece at once).
     """
     stage = ctx.manifest.stage("source")
     ctx.workspace.require(stage.name, *stage.prerequisites)
     plan = load_plan(ctx)
     sourcing_spec = ctx.specs.guardrail_text("sourcing")
-    for concept in plan.concepts:
+    thin: dict[str, int] = {}
+    lock = _Lock()
+
+    def work(concept: PieceConcept) -> None:
         if ctx.workspace.exists(sources_path(concept.id)) and ctx.workspace.exists(
             grounding_path(concept.id)
         ):
-            continue
+            return
         ledger = _research_piece(ctx, concept, sourcing_spec)
         verified = ledger.verified_claims()
         if len(verified) < ctx.config.min_verified_claims:
-            raise ThinSourcePackError(
-                f"Piece {concept.id!r}: only {len(verified)} verified claim(s) — "
-                f"needs {ctx.config.min_verified_claims}; the Piece dies at research, "
-                "not in prose"
-            )
+            with lock:
+                thin[concept.id] = len(verified)
+            return
         ctx.workspace.write(grounding_path(concept.id), ledger_to_json(ledger))
         ctx.workspace.write(sources_path(concept.id), _render_claim_pack(concept.id, ledger))
+
+    _fan_out(ctx, plan.concepts, work)
+    if thin:
+        summary = "; ".join(
+            f"{piece_id} ({count} verified)" for piece_id, count in sorted(thin.items())
+        )
+        raise ThinSourcePackError(
+            f"{len(thin)} Piece(s) each dies at research, not in prose: {summary} "
+            f"(needs {ctx.config.min_verified_claims} verified claim(s) each)"
+        )
 
 
 def _research_piece(ctx: RunContext, concept: PieceConcept, sourcing_spec: str) -> GroundingLedger:
@@ -483,7 +615,7 @@ def _research_piece(ctx: RunContext, concept: PieceConcept, sourcing_spec: str) 
     candidate_urls = [
         str(url) for claim in harvest for url in claim.get("candidate_urls", []) or []
     ]
-    pages = _chase_citations(ctx, candidate_urls)
+    pages = _navigate_sources(ctx, concept, sourcing_spec, candidate_urls)
     _snapshot_pages(ctx, concept.id, pages)
 
     support: dict[str, list[SourceRecord]] = {str(claim["id"]): [] for claim in harvest}
@@ -580,9 +712,10 @@ def run_stage_draft(ctx: RunContext) -> None:
     plan = load_plan(ctx)
     voice = ctx.specs.voice_text(voice_name(ctx, brief))
     dna = ctx.specs.dna_text()
-    for concept in plan.concepts:
+
+    def work(concept: PieceConcept) -> None:
         if ctx.workspace.exists(draft_path(concept.id)):
-            continue
+            return
         ctx.workspace.require(
             stage.name, *(stage.expand(path, concept.id) for path in stage.prerequisites)
         )
@@ -610,6 +743,8 @@ def run_stage_draft(ctx: RunContext) -> None:
         )
         ctx.workspace.write(draft_path(concept.id), render_piece(artifact))
 
+    _fan_out(ctx, plan.concepts, work)
+
 
 def run_stage_edit(ctx: RunContext) -> None:
     """Stage 4 — the Editor: anti-slop pass, machine-QA loop, 4.5 grounding check.
@@ -618,13 +753,15 @@ def run_stage_edit(ctx: RunContext) -> None:
     LLM-judged checks and loops the edit until pass or the QA budget is
     spent; then every factual assertion is mapped back to a verified claim.
 
+    A Piece that fails its bar (the machine-QA loop or the 4.5 grounding
+    check) no longer aborts the run: the stage finishes every other Piece,
+    persists the Piece's best-effort machine copy (its draft) as ``piece.md``
+    plus a failure marker (its failure code), and lets it flow into the piece
+    gate as an ordinary review target — the human's edit-approve fix (or a
+    rejection) is the same path any Verdict takes.
+
     Args:
         ctx: The run context.
-
-    Raises:
-        QABudgetExceededError: If a Piece cannot pass within the budget —
-            escalated, never silently shipped.
-        GroundingDriftError: If drift survives the cut-or-resource pass.
     """
     stage = ctx.manifest.stage("edit")
     brief = load_brief(ctx)
@@ -632,16 +769,24 @@ def run_stage_edit(ctx: RunContext) -> None:
     banned = ctx.specs.banned_phrases()
     voice = ctx.specs.voice_text(voice_name(ctx, brief))
     piece_spec = ctx.specs.guardrail_text("piece")
-    for concept in plan.concepts:
+
+    def work(concept: PieceConcept) -> None:
         if ctx.workspace.exists(piece_path(concept.id)):
-            continue
+            return
         ctx.workspace.require(
             stage.name, *(stage.expand(path, concept.id) for path in stage.prerequisites)
         )
-        artifact = parse_piece(ctx.workspace.read(draft_path(concept.id)))
-        artifact = _qa_loop(ctx, artifact, banned, voice, piece_spec)
-        artifact = _grounding_check(ctx, concept, artifact, banned)
-        ctx.workspace.write(piece_path(concept.id), render_piece(artifact))
+        draft = parse_piece(ctx.workspace.read(draft_path(concept.id)))
+        result = _qa_loop(ctx, draft, banned, voice, piece_spec)
+        if result.failure_code is None:
+            result = _grounding_check(ctx, concept, result.artifact, banned)
+        if result.failure_code is None:
+            ctx.workspace.write(piece_path(concept.id), render_piece(result.artifact))
+        else:
+            ctx.workspace.write(piece_path(concept.id), render_piece(draft))
+            _record_failure(ctx, concept.id, result.failure_code, result.detail)
+
+    _fan_out(ctx, plan.concepts, work)
 
 
 def _judge(
@@ -684,14 +829,101 @@ def _judge(
     ]
 
 
+def _check_guardrails_tool(
+    ctx: RunContext,
+    piece_id: str,
+    topic_ids: tuple[str, ...],
+    banned: tuple[str, ...],
+    voice: str,
+    piece_spec: str,
+) -> ToolSpec:
+    """Build the Editor's ``check_guardrails`` tool: evaluate + judge a candidate.
+
+    The tool wraps the deterministic ``evaluate_piece`` **and** the
+    non-mechanical LLM voice judge, so the agent sees the checker's verdict
+    and revises again within one loop. The judge call carries the authored
+    ``piece_spec + voice`` — it is never reduced to voice-blind codes.
+
+    Args:
+        ctx: The run context.
+        piece_id: The Piece id (candidates cannot rename it).
+        topic_ids: The Piece's Topic tags.
+        banned: The banned-filler list.
+        voice: The active Voice Profile text.
+        piece_spec: The piece guardrail text.
+
+    Returns:
+        The tool the Editor agent calls to check a revision.
+    """
+    schema = {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "teaser": {"type": "string"},
+            "read_time_min": {"type": "integer"},
+            "blocks": {"type": "array", "items": {"type": "object"}},
+        },
+        "required": ["blocks"],
+    }
+
+    def run(args: Mapping[str, object]) -> str:
+        candidate = decode_piece_payload(json.dumps(dict(args)), piece_id, topic_ids, "editor.qa")
+        violations = list(evaluate_piece(candidate, banned)) + _judge(
+            ctx, candidate, voice, piece_spec
+        )
+        return json.dumps(
+            {
+                "violations": [
+                    {"code": v.code, "message": v.message, "excerpt": v.excerpt} for v in violations
+                ]
+            }
+        )
+
+    return ToolSpec(
+        name="check_guardrails",
+        description=(
+            "Evaluate the current draft against the piece guardrails and the "
+            "voice judge. Pass the candidate's title, teaser, read_time_min, "
+            "and blocks; returns the list of remaining violations (empty when "
+            "the draft passes)."
+        ),
+        parameters=schema,
+        run=run,
+    )
+
+
+@dataclass(frozen=True)
+class _EditResult:
+    """The outcome of one Piece's edit — its artifact and any bar failure.
+
+    Attributes:
+        artifact: The best-effort artifact (the agent's output / cut result),
+            persisted as ``piece.md`` whether or not it passed.
+        failure_code: The failure code when a bar was not met, else None.
+        detail: The failure detail (the violations / drift summary).
+    """
+
+    artifact: PieceArtifact
+    failure_code: str | None
+    detail: str
+
+
 def _qa_loop(
     ctx: RunContext,
     artifact: PieceArtifact,
     banned: tuple[str, ...],
     voice: str,
     piece_spec: str,
-) -> PieceArtifact:
-    """Loop the edit until the piece guardrails pass or the budget is spent.
+) -> _EditResult:
+    """Revise the draft via a bounded agent over ``check_guardrails``.
+
+    The Editor agent loops draft → check → revise within one ``run_agent``
+    call (bounded by ``agent_step_limit``), carrying the authored
+    ``piece_spec + voice`` as its system prompt. The deterministic
+    ``evaluate_piece`` — not the model's self-assessment — is the arbiter
+    *after* the agent finishes; a Piece that still fails is reported as a
+    ``QABudgetExceededError`` bar failure (collected, not raised) so the
+    stage can route it to the human queue.
 
     Args:
         ctx: The run context.
@@ -701,46 +933,40 @@ def _qa_loop(
         piece_spec: The piece guardrail text.
 
     Returns:
-        The passing artifact.
-
-    Raises:
-        QABudgetExceededError: If the budget is spent without a pass.
+        The edit result — the revised artifact and any bar failure.
     """
-    for round_index in range(ctx.config.qa_budget + 1):
-        violations = list(evaluate_piece(artifact, banned)) + _judge(
-            ctx, artifact, voice, piece_spec
-        )
-        if not violations:
-            return artifact
-        if round_index == ctx.config.qa_budget:
-            summary = "; ".join(f"{v.code}: {v.message}" for v in violations[:5])
-            raise QABudgetExceededError(
-                f"Piece {artifact.id!r} still fails after {ctx.config.qa_budget} "
-                f"edit round(s) — escalating to the human queue: {summary}"
-            )
-        artifact = decode_piece_payload(
-            ctx.llm.complete(
-                LLMRequest(
-                    purpose="editor.revise",
-                    instructions=f"{piece_spec}\n\n---\n\n{voice}",
-                    payload={
-                        "piece_id": artifact.id,
-                        "title": artifact.title,
-                        "teaser": artifact.teaser,
-                        "read_time_min": artifact.read_time_min,
-                        "blocks": _blocks_payload(artifact),
-                        "violations": [
-                            {"code": v.code, "message": v.message, "excerpt": v.excerpt}
-                            for v in violations
-                        ],
-                    },
-                )
+    topic_ids = tuple(artifact.topic_ids)
+    tool = _check_guardrails_tool(ctx, artifact.id, topic_ids, banned, voice, piece_spec)
+    revised = decode_piece_payload(
+        ctx.llm.run_agent(
+            LLMRequest(
+                purpose="editor.qa",
+                instructions=f"{piece_spec}\n\n---\n\n{voice}",
+                payload={
+                    "piece_id": artifact.id,
+                    "title": artifact.title,
+                    "teaser": artifact.teaser,
+                    "read_time_min": artifact.read_time_min,
+                    "blocks": _blocks_payload(artifact),
+                },
             ),
-            piece_id=artifact.id,
-            topic_ids=tuple(artifact.topic_ids),
-            purpose="editor.revise",
+            [tool],
+            step_limit=ctx.config.agent_step_limit,
+        ),
+        piece_id=artifact.id,
+        topic_ids=topic_ids,
+        purpose="editor.qa",
+    )
+    residual = evaluate_piece(revised, banned)
+    if residual:
+        summary = "; ".join(f"{v.code}: {v.message}" for v in residual[:5])
+        return _EditResult(
+            revised,
+            QABudgetExceededError.__name__,
+            f"Piece {artifact.id!r} still fails after the agentic QA loop "
+            f"(step_limit={ctx.config.agent_step_limit}): {summary}",
         )
-    return artifact
+    return _EditResult(revised, None, "")
 
 
 def _blocks_payload(artifact: PieceArtifact) -> list[dict[str, object]]:
@@ -760,7 +986,7 @@ def _grounding_check(
     concept: PieceConcept,
     artifact: PieceArtifact,
     banned: tuple[str, ...],
-) -> PieceArtifact:
+) -> _EditResult:
     """Stage 4.5 — map every assertion back to a verified claim; cut drift.
 
     Args:
@@ -770,11 +996,9 @@ def _grounding_check(
         banned: The banned-filler list (final re-check after a cut).
 
     Returns:
-        The grounded artifact.
-
-    Raises:
-        GroundingDriftError: If unsupported assertions survive the cut pass.
-        QABudgetExceededError: If the cut re-broke the piece guardrails.
+        The edit result — the grounded artifact and any bar failure
+        (``GroundingDriftError`` if drift survives, ``QABudgetExceededError``
+        if the cut re-broke the guardrails).
     """
     ledger = ledger_from_json(ctx.workspace.read(grounding_path(concept.id)))
     claims = [{"id": claim.id, "text": claim.text} for claim in ledger.verified_claims()]
@@ -795,12 +1019,14 @@ def _grounding_check(
             purpose="editor.ground",
         )
         if not unsupported:
-            return artifact
+            return _EditResult(artifact, None, "")
         if attempt == 1:
             drifted = "; ".join(str(item.get("text", "")) for item in unsupported[:3])
-            raise GroundingDriftError(
+            return _EditResult(
+                artifact,
+                GroundingDriftError.__name__,
                 f"Piece {artifact.id!r} still carries unsupported assertions "
-                f"after the cut pass: {drifted}"
+                f"after the cut pass: {drifted}",
             )
         artifact = decode_piece_payload(
             ctx.llm.complete(
@@ -825,10 +1051,12 @@ def _grounding_check(
         residual = evaluate_piece(artifact, banned)
         if residual:
             summary = "; ".join(f"{v.code}: {v.message}" for v in residual[:3])
-            raise QABudgetExceededError(
-                f"Piece {artifact.id!r} re-broke the guardrails while cutting drift: {summary}"
+            return _EditResult(
+                artifact,
+                QABudgetExceededError.__name__,
+                f"Piece {artifact.id!r} re-broke the guardrails while cutting drift: {summary}",
             )
-    return artifact
+    return _EditResult(artifact, None, "")
 
 
 def run_stage_wire(

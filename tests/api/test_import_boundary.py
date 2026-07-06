@@ -54,3 +54,13 @@ def test_only_the_composition_root_reaches_the_harness() -> None:
     }
 
     assert reach <= {"harness_runner.py", "main.py"}, f"unexpected harness importers: {reach}"
+
+
+GENERATION_ONLY_SYMBOLS = ("run_agent", "ToolSpec", "LLMConfig", "usage.json", "fan_out")
+
+
+def test_consumption_references_none_of_the_generation_only_symbols() -> None:
+    for path in (SRC / "consumption").rglob("*.py"):
+        text = path.read_text()
+        for symbol in GENERATION_ONLY_SYMBOLS:
+            assert symbol not in text, f"{path} references generation-only {symbol!r}"

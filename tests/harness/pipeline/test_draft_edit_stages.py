@@ -4,12 +4,10 @@ import dataclasses
 import json
 import shutil
 
-import pytest
 from tests.harness.fixture_run import FIXTURE_PIECES, REPO_ROOT, build_context
 
 from content_graph.domain.blocks import BlockKind
 from harness.domain.piece_io import parse_piece
-from harness.errors import GroundingDriftError, QABudgetExceededError
 from harness.pipeline import stages
 from harness.specs import SpecLibrary
 
@@ -124,14 +122,17 @@ def test_planted_out_of_pack_fact_is_cut_not_carried_through(tmp_path):
     assert any(r.purpose == "editor.cut" for r in ctx.llm.requests)
 
 
-def test_unresolvable_drift_fails_loud(tmp_path):
+def test_unresolvable_drift_is_collected_and_routed_not_aborted(tmp_path):
     ctx = build_context(tmp_path)
     ctx.llm.on("editor.ground", lambda r: json.dumps({"unsupported": [{"text": "ghost fact"}]}))
-    with pytest.raises(GroundingDriftError, match="unsupported assertions"):
-        run_through_edit(ctx)
+    run_through_edit(ctx)
+    for piece_id in FIXTURE_PIECES:
+        assert stages.has_failed(ctx, piece_id)
+        assert "GroundingDriftError" in ctx.workspace.read(stages.failure_path(piece_id))
+        assert ctx.workspace.exists(stages.piece_path(piece_id))
 
 
-def test_editor_loops_until_the_piece_evaluator_passes(tmp_path):
+def test_editor_agent_revises_until_the_piece_evaluator_passes(tmp_path):
     ctx = build_context(tmp_path)
 
     def sloppy_draft(request):
@@ -146,33 +147,59 @@ def test_editor_loops_until_the_piece_evaluator_passes(tmp_path):
     run_through_edit(ctx)
     final = ctx.workspace.read(stages.piece_path("p-container"))
     assert "game-changer" not in final
-    assert any(r.purpose == "editor.revise" for r in ctx.llm.requests)
+    assert any(r.purpose == "editor.qa" for r in ctx.llm.requests)
+    judge_checks = [
+        r
+        for r in ctx.llm.requests
+        if r.purpose == "editor.judge" and r.payload.get("piece_id") == "p-container"
+    ]
+    assert len(judge_checks) >= 2
 
 
-def test_unfixable_piece_is_escalated_never_silently_shipped(tmp_path):
+def test_editor_agent_carries_the_authored_specs_on_request_and_judge(tmp_path):
+    ctx = build_context(tmp_path)
+    run_through_edit(ctx)
+    piece_spec = ctx.specs.guardrail_text("piece")
+    voice = ctx.specs.voice_text("narrative-nonfiction")
+    qa_request = next(r for r in ctx.llm.requests if r.purpose == "editor.qa")
+    assert piece_spec in qa_request.instructions
+    assert voice in qa_request.instructions
+    judge_request = next(r for r in ctx.llm.requests if r.purpose == "editor.judge")
+    assert piece_spec in judge_request.instructions
+    assert voice in judge_request.instructions
+
+
+def test_unfixable_piece_is_collected_with_a_failure_marker_not_silently_shipped(tmp_path):
     ctx = build_context(tmp_path)
 
-    def always_sloppy(request):
-        from tests.harness.fixture_run import _draft
+    def stubborn_agent(request, tools, step_limit):
+        check = next(t for t in tools if t.name == "check_guardrails")
+        candidate = {
+            "title": request.payload["title"],
+            "teaser": request.payload["teaser"],
+            "read_time_min": request.payload["read_time_min"],
+            "blocks": [dict(block) for block in request.payload["blocks"]],
+        }
+        candidate["blocks"][1]["text"] += " This proved to be a game-changer for the industry."
+        check.run(candidate)
+        return json.dumps(candidate)
 
-        payload = json.loads(_draft(request))
-        payload["blocks"][1]["text"] += " This proved to be a game-changer for the industry."
-        return json.dumps(payload)
-
-    ctx.llm.on("writer.draft", always_sloppy)
-    ctx.llm.on("editor.revise", always_sloppy)
-    with pytest.raises(QABudgetExceededError, match="escalating to the human queue"):
-        run_through_edit(ctx)
-    assert not ctx.workspace.exists(stages.piece_path("p-container"))
+    ctx.llm.on_agent("editor.qa", stubborn_agent)
+    run_through_edit(ctx)
+    for piece_id in FIXTURE_PIECES:
+        assert stages.has_failed(ctx, piece_id)
+        marker = ctx.workspace.read(stages.failure_path(piece_id))
+        assert "QABudgetExceededError" in marker
+        assert ctx.workspace.exists(stages.piece_path(piece_id))
 
 
-def test_judged_violations_also_drive_the_loop(tmp_path):
+def test_judged_violations_also_drive_the_agent_loop(tmp_path):
     ctx = build_context(tmp_path)
     calls = {"n": 0}
 
     def judge_once(request):
         calls["n"] += 1
-        if calls["n"] == 1:
+        if str(request.payload.get("piece_id")) == "p-container" and calls["n"] == 1:
             return json.dumps(
                 {
                     "violations": [
@@ -184,10 +211,14 @@ def test_judged_violations_also_drive_the_loop(tmp_path):
 
     ctx.llm.on("editor.judge", judge_once)
     run_through_edit(ctx)
-    revise_requests = [r for r in ctx.llm.requests if r.purpose == "editor.revise"]
-    assert revise_requests
-    codes = [v["code"] for v in revise_requests[0].payload["violations"]]
-    assert "C1" in codes
+    final = ctx.workspace.read(stages.piece_path("p-container"))
+    assert final.strip()
+    judge_checks = [
+        r
+        for r in ctx.llm.requests
+        if r.purpose == "editor.judge" and r.payload.get("piece_id") == "p-container"
+    ]
+    assert len(judge_checks) >= 2
 
 
 def test_voice_profile_swap_is_a_file_change_not_a_code_change(tmp_path):

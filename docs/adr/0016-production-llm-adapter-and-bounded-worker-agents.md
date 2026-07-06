@@ -31,3 +31,9 @@ Heavier than a single stateless `complete()` adapter: an agent loop, a tool abst
 ## Consequence
 
 The [ADR 0006](0006-generation-and-consumption-are-separate.md) boundary is untouched — none of this crosses into consumption. [ADR 0010](0010-content-generation-pipeline-architecture.md) still governs the pipeline's *shape*; this ADR governs how a stage may internally delegate bounded decisions and how the first real model is wired. The dormant admin trigger ([ADR 0015](0015-one-backend-deployable-http-api.md)) goes live once `LLM_PROVIDER` and a key are set.
+
+## Implementation note — where Decision 7's routing applies (reconciled 2026-07-06)
+
+Decision 7's "route the failed Piece into the piece gate" is realised at the **Edit** tier, because only there does a best-effort artifact exist to review: an Edit-bar failure (`QABudgetExceededError` / `GroundingDriftError`) persists the Piece's draft as its `piece.md` machine copy plus a `failure.md` marker, and the Piece flows to the piece gate as an ordinary review target — the human's `edit_approve` fix (or a rejection → non-survivor via rewire/reqa) closes it exactly as Decision 7 describes.
+
+A **Source** failure is different: a Piece whose vetted claim pack is too thin (`ThinSourcePackError`) has *no* draft to route and cannot pass through the full-plan Wire/QA stages that precede the piece gate. So the Source stage still **collects** — it finishes researching every Piece before failing, and reports all thin Pieces together in one aggregate error — but the run is **fatal** at research (the Piece "dies at research, not in prose"), not routed onward. The routing-to-gate path and the collect-then-abort path are the two faces of Decision 7; which one a failure takes depends on whether a reviewable draft exists.

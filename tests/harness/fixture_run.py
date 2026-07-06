@@ -383,6 +383,60 @@ def _hook(request: LLMRequest) -> str:
     )
 
 
+def _navigate(request, tools, step_limit):
+    """Well-behaved Researcher navigation: BFS the hub's cited outlinks, bounded.
+
+    Starts from the recalled candidate URLs and follows each fetched page's
+    outlinks toward the primary/secondary sources, capping total fetches at
+    ``step_limit`` — the offline analogue of following footnotes.
+    """
+    fetch = next(tool for tool in tools if tool.name == "fetch")
+    frontier = list(request.payload["candidate_urls"])
+    seen: set[str] = set()
+    fetches = 0
+    budget = max(step_limit, 1)
+    while frontier and fetches < budget:
+        url = frontier.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+        fetches += 1
+        result = json.loads(fetch.run({"url": url}))
+        for outlink in result.get("outlinks", []):
+            if outlink not in seen:
+                frontier.append(outlink)
+    return json.dumps({"reached": sorted(seen)})
+
+
+def _edit_qa(request, tools, step_limit):
+    """Well-behaved agentic Editor: check the draft, revise to canonical if flagged.
+
+    Exercises the ``check_guardrails`` tool (which runs evaluate_piece + the
+    judge) each round; when a violation is reported it revises to the Piece's
+    canonical clean paragraphs, mirroring the old default ``editor.revise``.
+    """
+    check = next(tool for tool in tools if tool.name == "check_guardrails")
+    piece_id = str(request.payload["piece_id"])
+    candidate = {
+        "title": request.payload["title"],
+        "teaser": request.payload["teaser"],
+        "read_time_min": request.payload["read_time_min"],
+        "blocks": request.payload["blocks"],
+    }
+    for _ in range(max(step_limit, 1)):
+        violations = json.loads(check.run(candidate))["violations"]
+        if not violations:
+            return json.dumps(candidate)
+        data = FIXTURE_PIECES[piece_id]
+        candidate = {
+            "title": data["title"],
+            "teaser": data["teaser"],
+            "read_time_min": 4,
+            "blocks": [{"kind": "paragraph", "text": text} for text in data["paragraphs"]],
+        }
+    return json.dumps(candidate)
+
+
 def _tier2(request: LLMRequest) -> str:
     return json.dumps(
         {
@@ -409,7 +463,11 @@ def well_behaved_llm() -> ScriptedLLM:
             "editor.cut": _draft,
             "weaver.hook": _hook,
             "reviewer.tier2": _tier2,
-        }
+        },
+        {
+            "researcher.navigate": _navigate,
+            "editor.qa": _edit_qa,
+        },
     )
 
 
