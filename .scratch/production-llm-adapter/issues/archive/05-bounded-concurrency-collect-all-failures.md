@@ -1,6 +1,6 @@
 # Bounded per-Piece concurrency + collect-all-failures routing into the piece gate
 
-Status: ready-for-agent
+Status: completed
 Feature: production-llm-adapter
 Blocked by: 03, 04
 
@@ -20,15 +20,20 @@ Scope stays **within-stage, per-Piece, bounded** — no cross-stage / cross-Piec
 
 ## Acceptance criteria
 
-- [ ] Source, Draft, and Edit fan per-Piece work out through a `ThreadPoolExecutor` bounded by a configurable `fan_out` (sane default); the bound is honored.
-- [ ] A fan-out run produces **byte-identical** per-Piece deliverables to a serial run.
-- [ ] A resumed run skips Pieces whose deliverable already exists — concurrency never re-does completed work or breaks resume-after-pause.
-- [ ] Scripting one Piece to fail its bar: the stage still finishes the others, persists the failing machine copy + failure code, and routes the failure into the piece gate as a review target.
-- [ ] An edit-approve Verdict on the failed Piece + rewire/reqa yields a contract-valid Survivor set; an unfixable Piece becomes a non-Survivor and the Survivors still pass the structural invariants.
-- [ ] No new gate, Verdict kind, or learning machinery is introduced — failures reuse the existing piece gate, Verdict, and Distiller substrate.
-- [ ] `uv run ruff check .`, `uv run ruff format`, `uv run mypy src`, and `uv run pytest` all pass.
+- [x] Source, Draft, and Edit fan per-Piece work out through a `ThreadPoolExecutor` bounded by a configurable `fan_out` (sane default); the bound is honored.
+- [x] A fan-out run produces **byte-identical** per-Piece deliverables to a serial run.
+- [x] A resumed run skips Pieces whose deliverable already exists — concurrency never re-does completed work or breaks resume-after-pause.
+- [x] Scripting one Piece to fail its bar: the stage still finishes the others, persists the failing machine copy + failure code, and routes the failure into the piece gate as a review target.
+- [x] An edit-approve Verdict on the failed Piece + rewire/reqa yields a contract-valid Survivor set; an unfixable Piece becomes a non-Survivor and the Survivors still pass the structural invariants.
+- [x] No new gate, Verdict kind, or learning machinery is introduced — failures reuse the existing piece gate, Verdict, and Distiller substrate.
+- [x] `uv run ruff check .`, `uv run ruff format`, `uv run mypy src`, and `uv run pytest` all pass.
 
 ## Blocked by
 
 - production-llm-adapter/issues/03 (the agentic Edit stage the fan-out wraps)
 - production-llm-adapter/issues/04 (the agentic Source stage and the thread-local browser that makes concurrent fetching safe)
+
+## Completion
+
+- Completed: 2026-07-06
+- Commit: `0779fc0be9cfc374f70039827abe798e198a222c`

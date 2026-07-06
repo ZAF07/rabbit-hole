@@ -83,6 +83,10 @@ _Avoid_: batch, cluster, collection, set (bare).
 The per-Piece record tying every factual claim to its source tier, corroboration status, supporting sources, and refutation verdict ([ADR 0005](docs/adr/0005-closed-book-grounding.md)). The Writer drafts closed-book from its verified claims only.
 _Avoid_: citations, bibliography, sources list.
 
+**Bounded-Worker Agent**:
+An agent that makes one *local* decision inside a deterministic stage — the Researcher navigating cited outlinks toward a primary source, or the Editor revising against the guardrail checker — never a supervisor that drives the pipeline. It is bounded first by the **expert-authored specs** carried as its instructions (Editorial DNA / Voice Profile / guardrail spec — the anti-slop guarantee), and then by a step limit; its output is never the arbiter — the stage's own deterministic checks (corroboration bar, `evaluate_piece`, grounding check) still decide what is admitted. **The agent proposes; code disposes** ([ADR 0016](docs/adr/0016-production-llm-adapter-and-bounded-worker-agents.md)). The Writer and Reviewer stay single-shot — an author must not grade its own draft, a verdict stage must not loop on its own judgement.
+_Avoid_: supervisor, autonomous agent, orchestrator, ReAct loop (bare).
+
 **Verdict**:
 One human gate action on one review target — **approve**, **edit-approve** (approve after editing the working copy; the machine→human diff is the learning signal), or **reject with a reason** ([ADR 0013](docs/adr/0013-human-review-surface-is-the-file-workspace.md)). Verdicts accumulate append-only per run and are the Distiller's raw material.
 _Avoid_: review, rating, score, feedback (bare).

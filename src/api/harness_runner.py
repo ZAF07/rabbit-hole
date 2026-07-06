@@ -8,8 +8,10 @@ reader modules import none of this (ADR 0006, ADR 0015). The harness reaches
 Postgres / LLM / web only through those ports.
 """
 
-from collections.abc import Callable
+import json
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Protocol
 
 from api.generation import GenerationService, Spawn
 from content_graph.ports.repository import ContentGraphRepository
@@ -20,6 +22,28 @@ from harness.ports.web_source import WebSourcePort
 from harness.review.gates import GatePolicy
 from harness.specs import SpecLibrary
 from harness.workspace import RunWorkspace
+
+USAGE = "usage.json"
+
+
+class UsageRecord(Protocol):
+    """The per-call usage shape an adapter accumulates (structural, provider-agnostic).
+
+    A scripted LLM exposes no ``usage`` at all (its runs write an empty
+    report); a production adapter exposes a list of records matching this
+    shape. Kept structural so ``harness_runner`` never imports a provider type.
+
+    Attributes:
+        tier: The tier the call went out on (``precise``/``creative``).
+        model: The model-id the call used.
+        input_tokens: Prompt tokens reported.
+        output_tokens: Completion tokens reported.
+    """
+
+    tier: str
+    model: str
+    input_tokens: int
+    output_tokens: int
 
 
 def build_generation_service(
@@ -69,6 +93,58 @@ def build_generation_service(
             gates=gates,
             config=resolved_config,
         )
-        return run_pipeline(context)
+        before = len(_usage_of(llm))
+        try:
+            return run_pipeline(context)
+        finally:
+            _write_usage(workspace, run_id, _usage_of(llm)[before:])
 
     return GenerationService(runner, spawn=spawn, id_factory=id_factory)
+
+
+def _usage_of(llm: LLMPort) -> Sequence[UsageRecord]:
+    """The usage records an adapter has accumulated, or empty for one with none.
+
+    Args:
+        llm: The model port; only a production adapter exposes ``usage``.
+
+    Returns:
+        The accumulated records (empty when the adapter tracks no usage).
+    """
+    records: Sequence[UsageRecord] = getattr(llm, "usage", ())
+    return records
+
+
+def _write_usage(workspace: RunWorkspace, run_id: str, records: Sequence[UsageRecord]) -> None:
+    """Write a run's ``usage.json`` — model calls and tokens, aggregated per tier.
+
+    Provider-agnostic via the structural :class:`UsageRecord`: a scripted LLM
+    with no usage yields an empty report, a production adapter yields real
+    DeepSeek spend, and neither is imported here by type.
+
+    Args:
+        workspace: The run's file workspace.
+        run_id: The run identity.
+        records: The per-call usage records the adapter accumulated this run.
+    """
+    models: dict[str, str] = {}
+    calls: dict[str, int] = {}
+    input_tokens: dict[str, int] = {}
+    output_tokens: dict[str, int] = {}
+    for record in records:
+        tier = record.tier
+        models.setdefault(tier, record.model)
+        calls[tier] = calls.get(tier, 0) + 1
+        input_tokens[tier] = input_tokens.get(tier, 0) + record.input_tokens
+        output_tokens[tier] = output_tokens.get(tier, 0) + record.output_tokens
+    by_tier = {
+        tier: {
+            "model": models[tier],
+            "calls": calls[tier],
+            "input_tokens": input_tokens[tier],
+            "output_tokens": output_tokens[tier],
+        }
+        for tier in sorted(calls)
+    }
+    report = {"run_id": run_id, "calls": len(records), "by_tier": by_tier}
+    workspace.write(USAGE, json.dumps(report, indent=2) + "\n")

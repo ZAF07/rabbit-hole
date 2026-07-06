@@ -199,13 +199,26 @@ def test_fetched_content_is_snapshotted_per_run(tmp_path):
     assert any("hub-example" in snapshot.name for snapshot in snapshots)
 
 
-def test_citation_chasing_respects_the_per_page_limit(tmp_path):
+def test_navigation_walk_is_bounded_by_the_step_limit(tmp_path):
     web = fixture_web_source()
-    config = HarnessConfig(citation_limit=1, min_verified_claims=1)
+    config = HarnessConfig(agent_step_limit=2, min_verified_claims=1)
     ctx = build_context(tmp_path, web=web, config=config)
     run_source(ctx)
+    assert hub_url("p-container") in web.fetched
     assert primary_url("p-container") in web.fetched
     assert secondary_url("p-container") not in web.fetched
+
+
+def test_navigation_agent_carries_the_sourcing_spec_including_navigation_section(tmp_path):
+    ctx = build_context(tmp_path)
+    run_source(ctx)
+    sourcing_spec = ctx.specs.guardrail_text("sourcing")
+    assert "Navigation (Round 2a" in sourcing_spec
+    nav_requests = [r for r in ctx.llm.requests if r.purpose == "researcher.navigate"]
+    assert nav_requests
+    for request in nav_requests:
+        assert request.instructions == sourcing_spec
+        assert "Navigation (Round 2a" in request.instructions
 
 
 def test_secondary_claim_verified_by_two_independent_origins(tmp_path):

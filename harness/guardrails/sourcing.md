@@ -2,6 +2,17 @@
 
 Applied during Stage 2 (Researcher: **Vet** + **Corroborate** rounds). Governs which sources are credible and when a claim may enter the vetted claim pack. Operationalizes [ADR 0005](../../docs/adr/0005-closed-book-grounding.md).
 
+## Navigation (Round 2a — chase citations toward the primary tier)
+
+Recall proposes candidate **hub** URLs (encyclopedias, overviews, aggregators); a hub is a *map*, not an authority. Navigate from it the way a person following footnotes would — **toward the primary source**, not breadth-first at a fixed depth:
+
+- **Follow citation/footnote outlinks that point at the primary tier** — the study, the official record, the dataset, the primary document, the person directly involved. Prefer the outlink that most plausibly *is* (or directly cites) the authority behind a load-bearing claim.
+- **Deprioritize navigation chrome** — menus, category indexes, "related"/"see also" rails, login/share/edit links, and other same-site scaffolding that does not advance toward a source.
+- **Stop** as soon as a primary/authoritative source for the load-bearing claims is reached, or when the step budget (`step_limit`) is spent — whichever comes first. A single strong primary beats a wider shallow crawl.
+- **No search.** There is no query-based discovery; navigate only by fetching given or cited URLs (ADR 0011). Every page reached is snapshotted, regardless of how it was found.
+
+Navigation only *reaches* pages; it never decides what is credible. Admission is decided afterward by the vetting, corroboration, and refutation rounds below.
+
 ## Source tiers
 - **Primary / authoritative** — the study, official record, dataset, primary document, or the person directly involved.
 - **Secondary** — reporting or analysis about a primary source.
