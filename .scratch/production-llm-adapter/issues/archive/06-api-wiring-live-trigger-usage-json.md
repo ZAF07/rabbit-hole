@@ -1,6 +1,6 @@
 # API wiring lights the admin trigger + per-run `usage.json`
 
-Status: ready-for-agent
+Status: completed
 Feature: production-llm-adapter
 Blocked by: 02, 05
 
@@ -19,14 +19,19 @@ Turn the dormant admin generation-trigger live, and make real DeepSeek spend vis
 
 ## Acceptance criteria
 
-- [ ] With `LLM_PROVIDER` + a key + `API_ADMIN_TOKEN` configured, `build_app_from_env` wires a real generation service and the admin trigger is mounted and live; with any of them absent, the trigger stays dormant.
-- [ ] Each run writes a `usage.json` recording calls and token/cost usage broken down per tier.
-- [ ] The run's `runtime`/`model` identity on Verdict lines names the real configured DeepSeek models in production.
-- [ ] The import-boundary test still proves consumption imports none of `run_agent`, `ToolSpec`, `LLMConfig`, the concurrency knobs, or `usage.json`.
-- [ ] `/verify`: a real, small run against live DeepSeek + live pages (a 2–4 Piece Brief) reaches the piece gate — exercising thread-safety under real Chromium and real JSON-mode behavior together.
-- [ ] `uv run ruff check .`, `uv run ruff format`, `uv run mypy src`, and `uv run pytest` all pass.
+- [x] With `LLM_PROVIDER` + a key + `API_ADMIN_TOKEN` configured, `build_app_from_env` wires a real generation service and the admin trigger is mounted and live; with any of them absent, the trigger stays dormant.
+- [x] Each run writes a `usage.json` recording calls and token/cost usage broken down per tier.
+- [x] The run's `runtime`/`model` identity on Verdict lines names the real configured DeepSeek models in production.
+- [x] The import-boundary test still proves consumption imports none of `run_agent`, `ToolSpec`, `LLMConfig`, the concurrency knobs, or `usage.json`.
+- [x] `/verify`: a real, small run against live DeepSeek + live pages (a 2–4 Piece Brief) reaches the piece gate — exercising thread-safety under real Chromium and real JSON-mode behavior together.
+- [x] `uv run ruff check .`, `uv run ruff format`, `uv run mypy src`, and `uv run pytest` all pass.
 
 ## Blocked by
 
 - production-llm-adapter/issues/02 (the factory + adapter `build_app_from_env` wires)
 - production-llm-adapter/issues/05 (sequenced last so the go-live run exercises the full agentic, concurrent pipeline)
+
+## Completion
+
+- Completed: 2026-07-06
+- Commit: `0779fc0be9cfc374f70039827abe798e198a222c`
