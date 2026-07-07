@@ -100,6 +100,12 @@ subagents call the CLI through a real `Bash` grant scoped to `harness` — the
 `tools:` grants on `researcher.md` / `editor.md` / `reviewer.md`, regenerated
 from `harness/agents/README.md`.
 
+**Full operator how-to:** [new-constellation-guide.md](new-constellation-guide.md)
+— preconditions, the structured `goal.md` Theme Brief (front-matter with
+`target_topics` as **exact seeded Topic slugs**), the seeded-slug reference, and
+troubleshooting. That is the doc to follow when driving the Claude runtime; the
+rest of *this* page is the DeepSeek/LangGraph engine.
+
 Because Claude is forced through the identical `check-*` gates and the identical
 write, it cannot publish an out-of-contract constellation any more than the
 LangGraph runtime can: **same pipeline, same contract, same write — not
@@ -120,34 +126,62 @@ a placeholder or empty brief before any stage runs.
 
 ## The run, step by step
 
-Throughout, `pressgang` is an example **run id** — any stable string; it becomes
-the workspace directory name `harness/runs/pressgang/`.
+Throughout, `invisible-systems` is an example **run id** — any stable string; it
+becomes the workspace directory name `harness/runs/invisible-systems/`. This
+walkthrough drives the **same** worked example as the Claude runtime
+([new-constellation-guide.md](new-constellation-guide.md)) — one brief, two
+drivers — so you can compare the engines on identical input.
 
-### Step 1 — Kick it off (runs to the plan gate)
+### Step 1 — Author the brief, then kick it off (runs to the plan gate)
+
+The run's input, `goal.md`, is a **structured Theme Brief** (front-matter), not a
+sentence: it needs `through_line`, `target_topics` (as **exact seeded Topic
+slugs**), and `piece_count`. See the brief format + the seeded-slug reference in
+[new-constellation-guide.md](new-constellation-guide.md) §2. Write it into the
+workspace, then start the run:
 
 ```bash
-uv run harness run pressgang --brief "How the printing press reshaped how knowledge spreads"
+mkdir -p harness/runs/invisible-systems
+cat > harness/runs/invisible-systems/goal.md <<'EOF'
+---
+through_line: >
+  The invisible systems that move the physical world — a ship, a chip, a
+  ledger, a strait — and how one failure in any of them cascades into all
+  the others.
+target_topics:
+  - logistics-and-supply-chains
+  - semiconductors
+  - financial-systems
+  - chokepoints-and-geography
+piece_count: 4
+---
+EOF
+
+uv run harness run invisible-systems
 ```
 
-Writes `harness/runs/pressgang/goal.md`, runs Stage 0 (gate) → Stage 1
-(Architect), preserves the machine draft as `plan.machine.md`, then pauses:
+Runs Stage 0 (gate) → Stage 1 (Architect), preserves the machine draft as
+`plan.machine.md`, then pauses:
 
 ```
-run pressgang: paused — awaiting verdict at gate: plan
+run invisible-systems: paused — awaiting verdict at gate: plan
 ```
 
-`--brief` is required only on the **first** call (when `goal.md` doesn't exist
-yet); omit it on every resume.
+The `run` command can instead seed `goal.md` for you via `--brief` on the first
+call, but `--brief` writes its argument to `goal.md` **verbatim** — so it must be
+the whole front-matter document, not a one-line theme. Authoring the file (above)
+is clearer. Either way, omit any brief on every **resume** — the run reads the
+`goal.md` already on disk.
 
 ### Step 2 — The plan gate (whole run)
 
-Read `harness/runs/pressgang/plan.md` — the Architect's constellation plan
+Read `harness/runs/invisible-systems/plan.md` — the Architect's constellation plan
 (concepts, Topics, planned Connections). This is the highest-leverage gate; the
 editorial moat lives here. Three moves:
 
 - **Approve as-is:**
   ```bash
-  uv run harness verdict pressgang --gate plan --approve
+  uv run harness verdict invisible-systems --gate plan --approve
   ```
 - **Edit-then-approve:** edit `plan.md` in your editor, then run the same
   `--approve`. The driver computes the `plan.machine.md → plan.md` diff and
@@ -155,14 +189,14 @@ editorial moat lives here. Three moves:
   the Distiller learns from.
 - **Reject:**
   ```bash
-  uv run harness verdict pressgang --gate plan --reject --reason "too broad; drop the telegraph tangent"
+  uv run harness verdict invisible-systems --gate plan --reject --reason "too broad; drop the telegraph tangent"
   ```
   A `--reason` is **required** on rejects.
 
 ### Step 3 — Resume to the per-piece gate
 
 ```bash
-uv run harness run pressgang
+uv run harness run invisible-systems
 ```
 
 Resumes and runs Stage 2 Source (Researcher, grounded web) → 3 Draft (Writer) →
@@ -170,15 +204,15 @@ Resumes and runs Stage 2 Source (Researcher, grounded web) → 3 Draft (Writer) 
 the **piece gate**, which fires **once per Piece**:
 
 ```
-run pressgang: paused — awaiting verdict at gate: piece <piece_id>
+run invisible-systems: paused — awaiting verdict at gate: piece <piece_id>
 ```
 
-Review each `harness/runs/pressgang/pieces/<piece_id>/piece.md` (the run-root
+Review each `harness/runs/invisible-systems/pieces/<piece_id>/piece.md` (the run-root
 `qa.md` holds the Reviewer's findings). Record a verdict **per piece** — note the
 `--target`:
 
 ```bash
-uv run harness verdict pressgang --gate piece --target <piece_id> --approve
+uv run harness verdict invisible-systems --gate piece --target <piece_id> --approve
 ```
 
 Approve/edit-approve the strong Pieces; reject the weak ones with a reason.
@@ -189,22 +223,22 @@ until **every** Piece has a verdict.
 ### Step 4 — Resume to the constellation gate
 
 ```bash
-uv run harness run pressgang
+uv run harness run invisible-systems
 ```
 
 Runs the publish-side Stage 7 rewire (Weaver over the survivors) → 8 re-QA
 (graph invariants over survivors), then pauses at the **constellation gate**.
-Review `harness/runs/pressgang/publish/connections.md` — the final wiring over
+Review `harness/runs/invisible-systems/publish/connections.md` — the final wiring over
 the approved subset, guaranteed no dead ends:
 
 ```bash
-uv run harness verdict pressgang --gate constellation --approve
+uv run harness verdict invisible-systems --gate constellation --approve
 ```
 
 ### Step 5 — Final resume writes to the Content Graph
 
 ```bash
-uv run harness run pressgang
+uv run harness run invisible-systems
 ```
 
 Stage 9 (write) does the atomic insert of the re-validated survivor set into

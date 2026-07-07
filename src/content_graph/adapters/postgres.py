@@ -49,8 +49,16 @@ class PostgresContentGraphRepository(ContentGraphRepository):
         Returns:
             A repository owning a newly opened connection; close it with
             :meth:`close` or by using the repository as a context manager.
+
+        Note:
+            The connection is opened with ``autocommit=True`` so each write's
+            ``with conn.transaction()`` block is atomic and self-committing, and
+            a read never holds an implicit transaction open across later writes.
+            Without this, a read before a write (the publish path) turned each
+            write into a non-committing savepoint that was rolled back on exit —
+            silent data loss behind an ``ok: true`` report.
         """
-        return cls(psycopg.connect(config.dsn))
+        return cls(psycopg.connect(config.dsn, autocommit=True))
 
     def close(self) -> None:
         """Close the underlying connection."""

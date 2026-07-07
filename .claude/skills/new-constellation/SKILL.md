@@ -1,6 +1,6 @@
 ---
 name: new-constellation
-description: Conduct one full content-generation run as the Claude Code runtime — walk harness/manifest.toml stage by stage, delegate each stage to its subagent, fire the three human gates, and publish through the shared `harness` CLI. Invoke as `/new-constellation <theme brief>`.
+description: Conduct one full content-generation run as the Claude Code runtime — walk harness/manifest.toml stage by stage, delegate each stage to its subagent, fire the three human gates, and publish through the shared `harness` CLI. Invoke as `/new-constellation <run id>`, where the operator has already authored the run's structured goal.md Theme Brief.
 ---
 
 # /new-constellation — conduct a generation run
@@ -11,9 +11,9 @@ Respect the [ADR 0006](../../../docs/adr/0006-generation-and-consumption-are-sep
 
 ## Argument
 
-`/new-constellation <theme brief>` — the `<theme brief>` is the run's through-line (e.g. *"How the printing press reshaped how knowledge spreads"*). If no brief is given, ask for one before doing anything else.
+`/new-constellation <run id>` — the argument names the run and its workspace `harness/runs/<run_id>/` (kebab-case, e.g. `invisible-systems`). Re-invoking with the same id **resumes** — every stage skips work whose deliverable already exists, so you always pick up from the first missing artifact.
 
-Pick a short stable **run id** from the brief (kebab-case, e.g. `printing-press`); it names the workspace `harness/runs/<run_id>/`. Re-invoking with the same id **resumes** — every stage skips work whose deliverable already exists, so you always pick up from the first missing artifact.
+The run's input is a **hand-authored Theme Brief** at `harness/runs/<run_id>/goal.md` — structured front-matter (`through_line`, `target_topics` as **exact seeded Topic slugs**, `piece_count`, plus optional fields), *not* a sentence. The operator writes it before invoking you (see [`docs/new-constellation-guide.md`](../../../docs/new-constellation-guide.md)). **You never invent the brief or its `target_topics`** — the topics must be real rows in the Content Graph or the publish write fails with `TopicNotFoundError`. If `goal.md` is absent, stop and tell the operator to author it (per that guide) before you run anything.
 
 ## Preconditions (fail loud if unmet)
 
@@ -24,9 +24,9 @@ The `harness` CLI must be runnable and its ports wired the same way the operator
 Before any stage runs, verify the run can legitimately start:
 
 1. The **Editorial DNA** (`harness/editorial/dna.md`) and the active **Voice Profile** (`harness/editorial/voices/`) are present and non-empty.
-2. A real **Theme Brief** was supplied — not empty, not a placeholder (`TODO`, `TBD`, `<...>`, lorem ipsum). If the brief is empty or a placeholder, **stop here and report why** — do not run a single stage.
+2. A hand-authored **Theme Brief** exists at `harness/runs/<run_id>/goal.md`. If it is **missing**, stop and tell the operator to author it (structured front-matter with `target_topics` chosen from the seeded Topic slugs — see [`docs/new-constellation-guide.md`](../../../docs/new-constellation-guide.md)); **do not fabricate one.** If it exists but is empty or holds a placeholder (`<...>`, `TODO`, `TBD`, lorem ipsum), **stop here and report why** — do not run a single stage.
 
-Seed the brief into the workspace by starting the run with it (below); the manifest's Stage 0 gate ("Editorial DNA + Theme Brief present, no unfilled placeholders") is the same check the production runtime applies.
+The brief is already on disk (the operator wrote it); you do not seed it. The manifest's Stage 0 gate ("Editorial DNA + Theme Brief present, no unfilled placeholders") is the same check the production runtime applies — it also validates that the front-matter parses (`through_line`, `target_topics`, `piece_count` present).
 
 ## Walk the manifest (do not hard-code the stages)
 
@@ -72,7 +72,7 @@ export HARNESS_MODEL=<the model you are running as>
 
 You own the workspace's on-disk artifacts. A clean way to do that: each subagent **returns its deliverable's content**; you write it to the workspace path the manifest names. That keeps file I/O in your hands (so a subagent's tool grant only needs to cover its CLI calls) and lets you preserve the machine copy uniformly. The `researcher`, `editor`, and `reviewer` call the CLI themselves via their `Bash` grant during their loop; the rest return content you place.
 
-1. **Stage 0 + seed.** Run the Stage-0 gate above. If it passes, write the brief to `harness/runs/<run_id>/goal.md`. (On a resume the workspace already exists — skip straight to the first missing deliverable.)
+1. **Stage 0.** Run the Stage-0 gate above against the operator-authored `harness/runs/<run_id>/goal.md` (you do not write it). If it passes, proceed. (On a resume the workspace already has deliverables — skip straight to the first missing one.)
 2. **Stage 1 — plan.** Delegate to `architect`; write its plan to `plan.md`. **Preserve the machine copy** before the human can touch it: `cp harness/runs/<run_id>/plan.md harness/runs/<run_id>/plan.machine.md`.
 3. **Plan gate.** Present `plan.md`. The human approves as-is, edits-then-approves (leave their edits in `plan.md` — the CLI infers `edit_approve` from the `plan.machine.md → plan.md` diff), or rejects:
    `uv run harness verdict <run_id> --gate plan (--approve | --reject --reason "…")`
