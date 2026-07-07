@@ -131,3 +131,28 @@ def test_architect_prompt_carries_the_markdown_specs(tmp_path):
     assert "Connection & hook checks" in request.instructions
     assert "Constellation-level checks" in request.instructions
     assert "taxonomy" in request.instructions.lower()
+
+
+def _schema_faithful_plan(request):
+    """A model that emits the decoder's keys only if the prompt names them.
+
+    Reproduces issue 07: given the fixture's content but told nothing about the
+    wire schema, a schema-blind model picks plausible-but-wrong top-level keys
+    (`pieces`/`edges`), and ``decode_plan`` fails. Told the contract, it emits
+    ``concepts``/``connections`` and the stage succeeds.
+    """
+    concepts = json.loads(_fixture_plan_json(request))["concepts"]
+    edges = json.loads(_fixture_plan_json(request))["connections"]
+    instructions = request.instructions.lower()
+    if "concepts" in instructions and "connections" in instructions:
+        return json.dumps({"concepts": concepts, "connections": edges})
+    return json.dumps({"pieces": concepts, "edges": edges})
+
+
+def test_architect_prompt_states_the_plan_response_contract(tmp_path):
+    ctx = build_context(tmp_path)
+    ctx.llm.on("architect.plan", _schema_faithful_plan)
+    stages.run_stage_plan(ctx)
+    plan = parse_plan(ctx.workspace.read("plan.md"))
+    assert len(plan.concepts) == 4
+    assert len(plan.connections) == len(FIXTURE_EDGES)

@@ -14,7 +14,7 @@ from harness.domain.plan import ConstellationPlan, render_plan
 from harness.errors import ContractViolationError
 from harness.guardrails.constellation import evaluate_constellation
 from harness.pipeline.context import RunContext
-from harness.pipeline.decode import decode_plan
+from harness.pipeline.decode import PLAN_RESPONSE_CONTRACT, decode_plan
 from harness.pipeline.stages._kernel import GOAL, PLAN, load_brief
 from harness.ports.llm import LLMRequest
 
@@ -67,6 +67,7 @@ def run_stage_plan(ctx: RunContext) -> None:
                 ctx.specs.guardrail_text("connection"),
                 ctx.specs.guardrail_text("constellation"),
                 ctx.specs.taxonomy_text(),
+                PLAN_RESPONSE_CONTRACT,
             )
         ),
         payload={
