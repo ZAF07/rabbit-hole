@@ -81,4 +81,4 @@ prose the loader mis-parsed). Root-causing is `/diagnosing-bugs`' job.
 ## Completion
 
 - Completed: 2026-07-08
-- Commit: <to be filled in manually>
+- Commit: `5ba705a2da047a900a0f587048cd1c3410932ccc`
