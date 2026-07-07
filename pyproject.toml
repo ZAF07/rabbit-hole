@@ -12,6 +12,9 @@ dependencies = [
     "uvicorn[standard]>=0.50.0",
 ]
 
+[project.scripts]
+harness = "harness.cli:main"
+
 [project.optional-dependencies]
 web = ["playwright>=1.40"]
 llm = ["langchain-deepseek>=1.1", "langchain>=1.3"]

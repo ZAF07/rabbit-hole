@@ -45,7 +45,7 @@ Every agent spec is a card with these fields:
 - **Stage / fan-out:** 2 · Source — per Piece.
 - **Reads:** the Piece concept from `plan.md`, [`guardrails/sourcing.md`](../guardrails/sourcing.md), any Theme-Brief seed sources.
 - **Produces:** `pieces/<id>/sources.md` (the **vetted claim pack**) + `pieces/<id>/grounding.json` (the ledger).
-- **Tools:** `WebSourcePort` (Playwright fetch + **bounded citation-chasing**; **recall-first URL discovery, no search engine in V1** — [ADR 0011](../../docs/adr/0011-harness-tools-are-ports-web-sourcing-recall-first.md)).
+- **Tools:** `Bash`, scoped to the `harness fetch` CLI (recall-first web fetch + **bounded citation-chasing**; **no search engine in V1** — [ADR 0011](../../docs/adr/0011-harness-tools-are-ports-web-sourcing-recall-first.md), [ADR 0019](../../docs/adr/0019-claude-code-generation-runtime-and-shared-harness-cli.md)).
 - **Honors:** sourcing.md, [ADR 0005](../../docs/adr/0005-closed-book-grounding.md).
 - **Task:** run the adversarial sub-pipeline — **2a Harvest** (candidate claims from internal recall; **recalled URLs fetched via the `WebSourcePort`, then citation-chased to the primary sources those hubs cite — no search engine, [ADR 0011](../../docs/adr/0011-harness-tools-are-ports-web-sourcing-recall-first.md)**) → **2b Vet** sources → **2c Corroborate** to the admission bar → **2d Refute** (red-team each surviving claim).
 - **Done when:** claim pack present; every claim has a status + corroboration; ledger complete; a **thin source pack fails loud and early** (before the Writer runs), never papered over.
@@ -62,6 +62,7 @@ Every agent spec is a card with these fields:
 - **Stage / fan-out:** 4 · Edit — per Piece.
 - **Reads:** `draft.md`, DNA, the Voice Profile, [`guardrails/piece.md`](../guardrails/piece.md).
 - **Produces:** `pieces/<id>/piece.md` — the final Piece.
+- **Tools:** `Bash`, scoped to the `harness check-piece` CLI (the binary Tier-1 piece guardrails the machine-QA loop revises against — [ADR 0019](../../docs/adr/0019-claude-code-generation-runtime-and-shared-harness-cli.md)).
 - **Honors:** piece.md, DNA, Voice Profile.
 - **Task:** tone/pacing/anti-slop edit; then the **machine-QA judge** applies piece.md and **loops the edit** until pass or QA budget spent; then **4.5 grounding check** — every assertion maps to a verified claim, drift/embellishment cut or re-sourced.
 - **Done when:** `piece.md` passes **all** piece.md checks *and* the grounding check; otherwise flagged/escalated, never silently shipped.
@@ -78,6 +79,7 @@ Every agent spec is a card with these fields:
 - **Stage / fan-out:** 6 · Constellation QA — runs once.
 - **Reads:** the whole constellation, [`guardrails/constellation.md`](../guardrails/constellation.md).
 - **Produces:** `qa.md` — Tier-1 invariant results + Tier-2 coherence verdict.
+- **Tools:** `Bash`, scoped to the `harness check-constellation` CLI (asserts the Tier-1 invariants I1–I8 — [ADR 0019](../../docs/adr/0019-claude-code-generation-runtime-and-shared-harness-cli.md)).
 - **Honors:** constellation.md.
 - **Task:** assert **Tier-1 invariants (I1–I8), binary**; judge **Tier-2 coherence (J1–J5)**; loop or flag.
 - **Done when:** all Tier-1 invariants pass; Tier-2 flags resolved or escalated to the human queue. (Surviving Pieces then enter the human review gate — [ADR 0004](../../docs/adr/0004-human-ratified-learning-loop.md).)

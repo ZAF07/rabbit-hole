@@ -10,7 +10,7 @@ doc is the operator playbook for that loop.
 
 ## The mental model
 
-One command — `scripts/gen.py run <id>` — advances the pipeline to the **next
+One command — `harness run <id>` — advances the pipeline to the **next
 human gate and pauses**. You review the artifact(s) it produced, record an
 **approve / reject** verdict, then run the same command again to **resume**. The
 run continues off its on-disk deliverables, so re-invoking always picks up from
@@ -29,21 +29,84 @@ The full stage order is: 0 Gate → 1 Plan → 2 Source → 3 Draft → 4 Edit �
 **[constellation gate]** → 9 write ([ADR 0010](adr/0010-content-generation-pipeline-architecture.md),
 [ADR 0012](adr/0012-publish-gate-rewire-and-reqa-approved-subset.md)).
 
-## The driver: `scripts/gen.py`
+## The driver: the `harness` CLI
 
-A dev/operator tool that builds the same `RunContext` the API composition root
-builds (Postgres Content Graph, the real DeepSeek adapter via `build_llm`,
-Playwright web, and the real `WorkspaceVerdictGates`), but **pins the run id so
-re-invoking resumes** the same workspace across gates. It uses only the
-harness's public ports, so it never couples the reader path to generation
+The first-class `harness` console script (`src/harness/cli.py`) is the shared
+deterministic seam both this in-process driver and the `/new-constellation`
+Claude Code runtime call ([ADR 0019](adr/0019-claude-code-generation-runtime-and-shared-harness-cli.md)).
+Its `main()` builds the same `RunContext` the API composition root builds
+(Postgres Content Graph, the real DeepSeek adapter via `build_llm`, Playwright
+web, and the real `WorkspaceVerdictGates`), but **pins the run id so re-invoking
+resumes** the same workspace across gates. It uses only the harness's public
+ports, so it never couples the reader path to generation
 ([ADR 0006](adr/0006-generation-and-consumption-are-separate.md),
 [ADR 0016](adr/0016-production-llm-adapter-and-bounded-worker-agents.md)).
 
-Two subcommands:
+The subcommands this playbook uses:
 
 - `run <run_id> [--brief "..."]` — start or resume a run up to its next gate.
 - `verdict <run_id> --gate <plan|piece|constellation> [--target <piece_id>] (--approve | --reject [--reason "..."])`
   — record a verdict.
+- `status <run_id>` — report where the run is paused, read-only.
+- `publish <run_id>` — re-wire, re-QA, and atomically write the approved
+  survivors (the `run` command's final resume does this for you; run it by hand
+  only to publish a run you walked with the Claude runtime).
+
+The same CLI also exposes `check-piece` / `check-constellation` (the binary
+Tier-1 guardrails) and `fetch` (the recall-first web port); the interactive
+`/new-constellation` runtime drives those directly (see below).
+
+## Two ways to drive a run
+
+There are two runtimes over this one CLI, and they never share an execution path
+— only the manifest, the specs, and the run workspace ([ADR 0019](adr/0019-claude-code-generation-runtime-and-shared-harness-cli.md)):
+
+- **In-process driver (`harness run`)** — you are the model of nothing; the
+  production DeepSeek/LangGraph pipeline authors every stage and you only review
+  at the gates. This is the loop the rest of this doc walks. Use it to drive the
+  production engine by hand across the three gates.
+- **Claude Code runtime (`/new-constellation`)** — Claude Code is the *conductor*
+  and the *author*: it walks the same manifest, delegates each stage to the
+  subagent cards, and grounds/checks/writes through this same CLI, so its output
+  is held to the identical contract. Use it to author a constellation
+  interactively with Claude as the model. DeepSeek is not called on this path.
+
+Both write `harness/runs/<id>/` with the same artifact layout, preserve the same
+`*.machine.md` copies, pause at the same three gates, and publish through the
+same write port — so a run is even resumable across engines (though a single run
+should stay on one for coherence).
+
+### The `/new-constellation` runtime
+
+`/new-constellation <theme brief>` (`.claude/skills/new-constellation/SKILL.md`)
+makes Claude Code conduct one run end-to-end. The skill is a thin conductor: at
+run start it **reads `harness/manifest.toml` and the agent cards**, then walks
+stages in manifest order under the deliverable-on-disk prerequisite gate — the
+pipeline is never written down twice. Claude does the creative and judgment work
+(plan, recall + source, draft, anti-slop revision, hooks, Tier-2 coherence); the
+CLI does the binary work:
+
+- the **Researcher** grounds via `harness fetch <url>` — the recall-first
+  `WebSourcePort`, raw text + outlinks, no search engine ([ADR 0011](adr/0011-harness-tools-are-ports-web-sourcing-recall-first.md));
+  Claude Code's own `WebSearch`/`WebFetch` are **not** used for grounding.
+- the **Editor** revises each Piece against `harness check-piece <id> <piece>`
+  until it exits `0`.
+- the **Reviewer** asserts Tier-1 I1–I8 via `harness check-constellation <id>`.
+
+At each of the three human gates it presents the artifact plus the relevant
+`check-*` report, takes your decision in-session, records it via
+`harness verdict`, and resumes; it publishes via `harness publish`. The
+subagents call the CLI through a real `Bash` grant scoped to `harness` — the
+`tools:` grants on `researcher.md` / `editor.md` / `reviewer.md`, regenerated
+from `harness/agents/README.md`.
+
+Because Claude is forced through the identical `check-*` gates and the identical
+write, it cannot publish an out-of-contract constellation any more than the
+LangGraph runtime can: **same pipeline, same contract, same write — not
+identical prose** (a different model writes it). Stage 0 stops the skill loud on
+a placeholder or empty brief before any stage runs.
+
+## Driving the production engine by hand (`harness run`)
 
 ## Preconditions
 
@@ -63,7 +126,7 @@ the workspace directory name `harness/runs/pressgang/`.
 ### Step 1 — Kick it off (runs to the plan gate)
 
 ```bash
-uv run python scripts/gen.py run pressgang --brief "How the printing press reshaped how knowledge spreads"
+uv run harness run pressgang --brief "How the printing press reshaped how knowledge spreads"
 ```
 
 Writes `harness/runs/pressgang/goal.md`, runs Stage 0 (gate) → Stage 1
@@ -84,7 +147,7 @@ editorial moat lives here. Three moves:
 
 - **Approve as-is:**
   ```bash
-  uv run python scripts/gen.py verdict pressgang --gate plan --approve
+  uv run harness verdict pressgang --gate plan --approve
   ```
 - **Edit-then-approve:** edit `plan.md` in your editor, then run the same
   `--approve`. The driver computes the `plan.machine.md → plan.md` diff and
@@ -92,14 +155,14 @@ editorial moat lives here. Three moves:
   the Distiller learns from.
 - **Reject:**
   ```bash
-  uv run python scripts/gen.py verdict pressgang --gate plan --reject --reason "too broad; drop the telegraph tangent"
+  uv run harness verdict pressgang --gate plan --reject --reason "too broad; drop the telegraph tangent"
   ```
   A `--reason` is **required** on rejects.
 
 ### Step 3 — Resume to the per-piece gate
 
 ```bash
-uv run python scripts/gen.py run pressgang
+uv run harness run pressgang
 ```
 
 Resumes and runs Stage 2 Source (Researcher, grounded web) → 3 Draft (Writer) →
@@ -115,7 +178,7 @@ Review each `harness/runs/pressgang/pieces/<piece_id>/piece.md` (the run-root
 `--target`:
 
 ```bash
-uv run python scripts/gen.py verdict pressgang --gate piece --target <piece_id> --approve
+uv run harness verdict pressgang --gate piece --target <piece_id> --approve
 ```
 
 Approve/edit-approve the strong Pieces; reject the weak ones with a reason.
@@ -126,7 +189,7 @@ until **every** Piece has a verdict.
 ### Step 4 — Resume to the constellation gate
 
 ```bash
-uv run python scripts/gen.py run pressgang
+uv run harness run pressgang
 ```
 
 Runs the publish-side Stage 7 rewire (Weaver over the survivors) → 8 re-QA
@@ -135,13 +198,13 @@ Review `harness/runs/pressgang/publish/connections.md` — the final wiring over
 the approved subset, guaranteed no dead ends:
 
 ```bash
-uv run python scripts/gen.py verdict pressgang --gate constellation --approve
+uv run harness verdict pressgang --gate constellation --approve
 ```
 
 ### Step 5 — Final resume writes to the Content Graph
 
 ```bash
-uv run python scripts/gen.py run pressgang
+uv run harness run pressgang
 ```
 
 Stage 9 (write) does the atomic insert of the re-validated survivor set into

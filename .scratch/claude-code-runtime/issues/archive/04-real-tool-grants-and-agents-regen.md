@@ -1,6 +1,6 @@
 # 04 — Real tool grants + `.claude/agents/` regen
 
-Status: ready-for-agent
+Status: completed
 Feature: claude-code-runtime
 
 ## Parent
@@ -17,13 +17,18 @@ This is a spec/regeneration slice: no CLI logic changes. It depends on the comma
 
 ## Acceptance criteria
 
-- [ ] The Researcher / Editor / Reviewer cards in `harness/agents/README.md` grant `Bash` (scoped to `harness`) instead of the `WebSourcePort` placeholder; the other cards are unchanged.
-- [ ] `.claude/agents/` is regenerated so `researcher.md` / `editor.md` / `reviewer.md` reflect the new grants.
-- [ ] The agent-card drift test (`tests/harness/test_agent_cards.py`) asserts the new grants and passes; no parallel test is added.
-- [ ] No occurrence of the non-tool `WebSourcePort` grant remains in the cards.
-- [ ] `ruff`, `mypy src`, `pytest` pass.
+- [x] The Researcher / Editor / Reviewer cards in `harness/agents/README.md` grant `Bash` (scoped to `harness`) instead of the `WebSourcePort` placeholder; the other cards are unchanged.
+- [x] `.claude/agents/` is regenerated so `researcher.md` / `editor.md` / `reviewer.md` reflect the new grants.
+- [x] The agent-card drift test (`tests/harness/test_agent_cards.py`) asserts the new grants and passes; no parallel test is added.
+- [x] No occurrence of the non-tool `WebSourcePort` grant remains in the cards.
+- [x] `ruff`, `mypy src`, `pytest` pass.
 
 ## Blocked by
 
 - Issue 01 (`check-piece` / `check-constellation` exist).
 - Issue 02 (`fetch` exists).
+
+## Completion
+
+- Completed: 2026-07-07
+- Commit: <to be filled in manually>

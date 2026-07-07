@@ -1,6 +1,6 @@
 # 02 — `harness fetch` + `harness verdict`
 
-Status: ready-for-agent
+Status: completed
 Feature: claude-code-runtime
 
 ## Parent
@@ -16,13 +16,18 @@ The two seam commands the Researcher subagent and the human gates depend on, add
 
 ## Acceptance criteria
 
-- [ ] `harness fetch <url>` over the `fixture_web_source` returns the canned page's content + outlinks as JSON and exits 0; a URL with no page returns the null/again signal and a non-zero (or clearly-flagged) exit.
-- [ ] `harness verdict … --approve` appends a record such that `WorkspaceVerdictGates` then reads the target as approved; `--reject` without `--reason` errors; `--reject --reason` records the reason.
-- [ ] Approving a working copy that was **edited** away from its `*.machine.md` is recorded as `edit_approve` with the unified diff attached; approving an unedited copy is recorded as `approve`.
-- [ ] The per-piece gate requires `--target`; the plan/constellation gates use the gate name as target.
-- [ ] `tests/harness/test_cli.py` covers both commands over the `fixture_run` substrate (fake web source; workspace verdict round-trip), asserting exit code + stdout + `verdicts.jsonl` / gate-decision side-effects.
-- [ ] `ruff`, `mypy src`, `pytest` all pass.
+- [x] `harness fetch <url>` over the `fixture_web_source` returns the canned page's content + outlinks as JSON and exits 0; a URL with no page returns the null/again signal and a non-zero (or clearly-flagged) exit.
+- [x] `harness verdict … --approve` appends a record such that `WorkspaceVerdictGates` then reads the target as approved; `--reject` without `--reason` errors; `--reject --reason` records the reason.
+- [x] Approving a working copy that was **edited** away from its `*.machine.md` is recorded as `edit_approve` with the unified diff attached; approving an unedited copy is recorded as `approve`.
+- [x] The per-piece gate requires `--target`; the plan/constellation gates use the gate name as target.
+- [x] `tests/harness/test_cli.py` covers both commands over the `fixture_run` substrate (fake web source; workspace verdict round-trip), asserting exit code + stdout + `verdicts.jsonl` / gate-decision side-effects.
+- [x] `ruff`, `mypy src`, `pytest` all pass.
 
 ## Blocked by
 
 - Issue 01 (the CLI core, dispatch, and test harness).
+
+## Completion
+
+- Completed: 2026-07-07
+- Commit: <to be filled in manually>

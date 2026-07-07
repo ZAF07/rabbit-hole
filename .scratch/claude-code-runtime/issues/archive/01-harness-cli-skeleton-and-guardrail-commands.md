@@ -1,6 +1,6 @@
 # 01 — `harness` CLI skeleton + `check-piece` / `check-constellation`
 
-Status: ready-for-agent
+Status: completed
 Feature: claude-code-runtime
 
 ## Parent
@@ -20,13 +20,18 @@ Both are **thin adapters** over already-shipped pure functions — this slice ad
 
 ## Acceptance criteria
 
-- [ ] `harness` is a registered console script; `harness --help` lists subcommands; unknown subcommand exits non-zero with a usage message.
-- [ ] `run_cli` executes a subcommand over **injected** ports (no env access in the core), returning an exit code and writing structured JSON to stdout; `main()` wires the real adapters from environment config and delegates to it.
-- [ ] `harness check-piece <run> <piece_id>` on a clean fixture Piece exits 0 with an empty violations list; on a doctored slop/invalid Piece it exits non-zero and lists the expected violation codes.
-- [ ] `harness check-constellation <run>` on the clean fixture run exits 0; a run with an injected invariant break (e.g. a dead end / missing cross-Topic Connection) exits non-zero and names the failing invariant.
-- [ ] `tests/harness/test_cli.py` drives `run_cli` in-process over the `fixture_run` substrate (`build_context`, `well_behaved_llm`, `InMemoryContentGraphRepository`) — asserting exit code + stdout + side-effects only, not re-testing the evaluators.
-- [ ] `ruff check`, `ruff format`, `mypy src`, `pytest` all pass; the CLI core is type-annotated with google-style docstrings.
+- [x] `harness` is a registered console script; `harness --help` lists subcommands; unknown subcommand exits non-zero with a usage message.
+- [x] `run_cli` executes a subcommand over **injected** ports (no env access in the core), returning an exit code and writing structured JSON to stdout; `main()` wires the real adapters from environment config and delegates to it.
+- [x] `harness check-piece <run> <piece_id>` on a clean fixture Piece exits 0 with an empty violations list; on a doctored slop/invalid Piece it exits non-zero and lists the expected violation codes.
+- [x] `harness check-constellation <run>` on the clean fixture run exits 0; a run with an injected invariant break (e.g. a dead end / missing cross-Topic Connection) exits non-zero and names the failing invariant.
+- [x] `tests/harness/test_cli.py` drives `run_cli` in-process over the `fixture_run` substrate (`build_context`, `well_behaved_llm`, `InMemoryContentGraphRepository`) — asserting exit code + stdout + side-effects only, not re-testing the evaluators.
+- [x] `ruff check`, `ruff format`, `mypy src`, `pytest` all pass; the CLI core is type-annotated with google-style docstrings.
 
 ## Blocked by
 
 None — can start immediately.
+
+## Completion
+
+- Completed: 2026-07-07
+- Commit: <to be filled in manually>
