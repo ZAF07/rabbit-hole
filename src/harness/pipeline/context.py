@@ -20,6 +20,10 @@ class HarnessConfig:
         min_verified_claims: The thin-pack bar — fewer verified claims than
             this fails the Piece before the Writer runs.
         hook_budget: Maximum Weaver retries for one failing hook.
+        plan_repair_budget: Maximum Architect re-plans on a structural
+            soundness failure — the concrete violations are fed back and the
+            Architect re-plans, up to this many extra attempts, before the run
+            aborts (the soundness check stays the arbiter).
         agent_step_limit: The step budget for a bounded-worker agent
             (the Researcher's navigation and the Editor's revision loops),
             passed to ``run_agent`` as its ``recursion_limit`` — it also
@@ -36,6 +40,7 @@ class HarnessConfig:
     default_voice: str = "narrative-nonfiction"
     min_verified_claims: int = 2
     hook_budget: int = 2
+    plan_repair_budget: int = 2
     agent_step_limit: int = 6
     fan_out: int = 1
     runtime: str = "langgraph"

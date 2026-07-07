@@ -11,6 +11,7 @@ from content_graph.domain.topic import Topic
 from harness.domain.plan import parse_plan
 from harness.errors import ContractViolationError
 from harness.pipeline import stages
+from harness.pipeline.context import HarnessConfig
 from harness.pipeline.graph import run_pipeline
 
 
@@ -59,6 +60,61 @@ def _fixture_plan_json(request):
     from tests.harness.fixture_run import _architect_plan
 
     return _architect_plan(request)
+
+
+def test_architect_re_plans_when_the_first_plan_is_structurally_unsound(tmp_path):
+    """A structural failure feeds the violations back and re-plans (issue 08).
+
+    A live model that returns an unsound plan first — here p-strait as a dead
+    end (I4) — but corrects once it can see the concrete violations must not
+    abort the run: the bounded repair loop re-plans and writes a sound plan.
+    """
+
+    def unsound_until_told(request):
+        payload = json.loads(_fixture_plan_json(request))
+        if request.payload.get("prior_violations"):
+            return json.dumps(payload)
+        payload["connections"] = [
+            edge for edge in payload["connections"] if edge["from"] != "p-strait"
+        ]
+        return json.dumps(payload)
+
+    ctx = build_context(tmp_path)
+    ctx.llm.on("architect.plan", unsound_until_told)
+    stages.run_stage_plan(ctx)
+    plan = parse_plan(ctx.workspace.read("plan.md"))
+    assert len(plan.concepts) == 4
+    plan_calls = [r for r in ctx.llm.requests if r.purpose == "architect.plan"]
+    assert len(plan_calls) == 2
+    assert "structurally unsound" in plan_calls[1].payload["prior_violations"][0]
+
+
+def test_architect_aborts_when_no_plan_within_the_budget_is_sound(tmp_path):
+    """A model that never corrects still aborts after exhausting the budget."""
+
+    def always_dead_end(request):
+        payload = json.loads(_fixture_plan_json(request))
+        payload["connections"] = [
+            edge for edge in payload["connections"] if edge["from"] != "p-strait"
+        ]
+        return json.dumps(payload)
+
+    ctx = build_context(tmp_path, config=HarnessConfig(plan_repair_budget=2))
+    ctx.llm.on("architect.plan", always_dead_end)
+    with pytest.raises(ContractViolationError, match="structurally unsound"):
+        stages.run_stage_plan(ctx)
+    plan_calls = [r for r in ctx.llm.requests if r.purpose == "architect.plan"]
+    assert len(plan_calls) == 3
+    assert not ctx.workspace.exists("plan.md")
+
+
+def test_plan_response_contract_states_the_structural_rules(tmp_path):
+    ctx = build_context(tmp_path)
+    stages.run_stage_plan(ctx)
+    request = next(r for r in ctx.llm.requests if r.purpose == "architect.plan")
+    assert "no dead ends" in request.instructions
+    assert "single connected graph" in request.instructions
+    assert "piece_count" in request.instructions
 
 
 def test_plan_marks_entry_worthy_nodes(tmp_path):
