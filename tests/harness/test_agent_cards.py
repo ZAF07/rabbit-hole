@@ -26,9 +26,10 @@ def test_the_seven_agents_split_out_in_roster_order():
 def test_tool_grants_come_from_the_card_not_a_hardcoded_map():
     cards = {card.name: card for card in parse_agent_cards(ROSTER)}
     assert cards["architect"].tools == ("ContentGraphRepository",)
-    assert cards["researcher"].tools == ("WebSourcePort",)
+    assert cards["researcher"].tools == ("Bash",)
+    assert cards["editor"].tools == ("Bash",)
+    assert cards["reviewer"].tools == ("Bash",)
     assert cards["writer"].tools == ()
-    assert cards["editor"].tools == ()
 
 
 def test_rendered_subagents_carry_frontmatter_and_the_verbatim_body():
@@ -36,7 +37,7 @@ def test_rendered_subagents_carry_frontmatter_and_the_verbatim_body():
     researcher = render_subagent(cards["researcher"])
     assert researcher.startswith("---\nname: researcher\n")
     assert "description: the closed-book substrate builder" in researcher
-    assert "tools: WebSourcePort" in researcher
+    assert "tools: Bash" in researcher
     assert "**2a Harvest**" in researcher
 
     writer = render_subagent(cards["writer"])

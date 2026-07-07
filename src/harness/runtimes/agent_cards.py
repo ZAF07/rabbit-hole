@@ -16,7 +16,7 @@ from harness.errors import MalformedArtifactError
 
 _CARD_HEADING = re.compile(r"^## \d+ · (?P<name>[A-Za-z]+) — (?P<tagline>.+?)$")
 _TOOLS_LINE = re.compile(r"^- \*\*Tools:\*\* (?P<tools>.+)$")
-_PORT_NAME = re.compile(r"`([A-Za-z]+Port|ContentGraphRepository)`")
+_PORT_NAME = re.compile(r"`(Bash|[A-Za-z]+Port|ContentGraphRepository)`")
 
 
 @dataclass(frozen=True)
@@ -26,8 +26,10 @@ class AgentCard:
     Attributes:
         name: The agent's lowercase name (the subagent file stem).
         description: The card's tagline, markdown emphasis stripped.
-        tools: The ports the card grants, in card order; empty for the
-            pure file-in / file-out agents.
+        tools: The tool grants the card carries, in card order — ports
+            (``ContentGraphRepository``) or the ``Bash`` grant that scopes a
+            subagent to the ``harness`` CLI; empty for the pure file-in /
+            file-out agents.
         body: The card's full markdown body, verbatim.
     """
 

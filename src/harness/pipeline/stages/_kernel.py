@@ -17,6 +17,7 @@ from harness.domain.plan import ConstellationPlan, parse_plan
 from harness.domain.wiring import parse_connections
 from harness.manifest import StageSpec
 from harness.pipeline.context import RunContext
+from harness.workspace import RunWorkspace
 
 GOAL = "goal.md"
 PLAN = "plan.md"
@@ -205,6 +206,10 @@ def assemble_constellation(
 ) -> ConstellationArtifact:
     """Build the constellation artifact from the deliverables on disk.
 
+    A thin wrapper over :func:`constellation_from_workspace` — the assembly
+    needs only the run workspace, so the shared ``harness`` CLI can reuse the
+    same reader without wiring the model or Content Graph ports.
+
     Args:
         ctx: The run context.
         connections_source: Which connections deliverable to read.
@@ -214,17 +219,40 @@ def assemble_constellation(
     Returns:
         The assembled artifact.
     """
-    brief = load_brief(ctx)
-    plan = load_plan(ctx)
+    return constellation_from_workspace(
+        ctx.workspace, connections_source=connections_source, survivors=survivors
+    )
+
+
+def constellation_from_workspace(
+    workspace: RunWorkspace,
+    connections_source: str = CONNECTIONS,
+    survivors: frozenset[str] | None = None,
+) -> ConstellationArtifact:
+    """Assemble the constellation artifact from a run workspace's deliverables.
+
+    Reads only files (Brief, plan, Pieces, connections, ledgers) — no port is
+    touched — so both the pipeline and the CLI's ``check-constellation`` seam
+    share one assembler.
+
+    Args:
+        workspace: The run's file workspace.
+        connections_source: Which connections deliverable to read.
+        survivors: When re-QAing, the approved Piece ids; None takes the
+            full plan and the Brief's own targets.
+
+    Returns:
+        The assembled artifact.
+    """
+    brief = parse_brief(workspace.read(GOAL))
+    plan = parse_plan(workspace.read(PLAN))
     concept_ids = [
         concept.id for concept in plan.concepts if survivors is None or concept.id in survivors
     ]
-    pieces = tuple(
-        parse_piece(ctx.workspace.read(piece_path(piece_id))) for piece_id in concept_ids
-    )
-    connections = parse_connections(ctx.workspace.read(connections_source))
+    pieces = tuple(parse_piece(workspace.read(piece_path(piece_id))) for piece_id in concept_ids)
+    connections = parse_connections(workspace.read(connections_source))
     ledgers = {
-        piece_id: ledger_from_json(ctx.workspace.read(grounding_path(piece_id)))
+        piece_id: ledger_from_json(workspace.read(grounding_path(piece_id)))
         for piece_id in concept_ids
     }
     if survivors is None:
