@@ -59,7 +59,82 @@ def run_stage_plan(ctx: RunContext) -> None:
         return
     brief = load_brief(ctx)
     existing = ctx.repo.list_piece_summaries()
-    request = LLMRequest(
+    plan = _plan_with_repair(ctx, brief, existing)
+    ctx.workspace.write(PLAN, render_plan(plan))
+
+
+def _plan_with_repair(
+    ctx: RunContext, brief: ThemeBrief, existing: Sequence[PieceSummary]
+) -> ConstellationPlan:
+    """Ask the Architect for a plan, re-planning against concrete violations.
+
+    The soundness check is the arbiter — the agent proposes, code disposes
+    (ADR 0016). On a structural (or duplicate) failure the specific violations
+    are fed back into the next request and the Architect re-plans, up to
+    ``plan_repair_budget`` extra attempts, before the run aborts with the last
+    failure. The first request is unchanged from a single-shot call.
+
+    Args:
+        ctx: The run context.
+        brief: The run's Brief.
+        existing: The published Pieces the Architect is shown.
+
+    Returns:
+        The first sound, duplicate-free plan produced.
+
+    Raises:
+        ContractViolationError: If no attempt within the budget is sound.
+    """
+    feedback: tuple[str, ...] = ()
+    last_error: ContractViolationError | None = None
+    for _ in range(ctx.config.plan_repair_budget + 1):
+        plan = decode_plan(ctx.llm.complete(_plan_request(ctx, brief, existing, feedback)))
+        try:
+            _assert_no_duplicates(plan, existing)
+            _assert_plan_sound(plan, brief)
+        except ContractViolationError as violation:
+            last_error = violation
+            feedback = (str(violation),)
+            continue
+        return plan
+    assert last_error is not None
+    raise last_error
+
+
+def _plan_request(
+    ctx: RunContext,
+    brief: ThemeBrief,
+    existing: Sequence[PieceSummary],
+    prior_violations: Sequence[str],
+) -> LLMRequest:
+    """Build the ``architect.plan`` request, carrying any prior violations.
+
+    Args:
+        ctx: The run context (for the specs).
+        brief: The run's Brief.
+        existing: The published Pieces the Architect is shown.
+        prior_violations: Why the previous attempt was rejected; empty on the
+            first attempt, in which case the payload omits the key entirely.
+
+    Returns:
+        The request to send.
+    """
+    payload: dict[str, object] = {
+        "through_line": brief.through_line,
+        "target_topics": list(brief.target_topics),
+        "piece_count": list(brief.piece_count),
+        "must_include": list(brief.must_include),
+        "entry_hints": list(brief.entry_hints),
+        "must_avoid": list(brief.must_avoid),
+        "notes": brief.notes,
+        "existing_pieces": [
+            {"id": summary.id, "title": summary.title, "teaser": summary.teaser}
+            for summary in existing
+        ],
+    }
+    if prior_violations:
+        payload["prior_violations"] = list(prior_violations)
+    return LLMRequest(
         purpose="architect.plan",
         instructions="\n\n---\n\n".join(
             (
@@ -70,24 +145,8 @@ def run_stage_plan(ctx: RunContext) -> None:
                 PLAN_RESPONSE_CONTRACT,
             )
         ),
-        payload={
-            "through_line": brief.through_line,
-            "target_topics": list(brief.target_topics),
-            "piece_count": list(brief.piece_count),
-            "must_include": list(brief.must_include),
-            "entry_hints": list(brief.entry_hints),
-            "must_avoid": list(brief.must_avoid),
-            "notes": brief.notes,
-            "existing_pieces": [
-                {"id": summary.id, "title": summary.title, "teaser": summary.teaser}
-                for summary in existing
-            ],
-        },
+        payload=payload,
     )
-    plan = decode_plan(ctx.llm.complete(request))
-    _assert_no_duplicates(plan, existing)
-    _assert_plan_sound(plan, brief)
-    ctx.workspace.write(PLAN, render_plan(plan))
 
 
 def _assert_no_duplicates(plan: ConstellationPlan, existing: Sequence[PieceSummary]) -> None:

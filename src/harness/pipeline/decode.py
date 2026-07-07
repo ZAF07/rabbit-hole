@@ -56,7 +56,24 @@ Respond with a single JSON object with exactly these two top-level keys:
   - `"rationale"` (string) — why the two Pieces connect.
 
 Use these exact key names. Emit no other top-level keys and no prose outside
-the JSON object.\
+the JSON object.
+
+## Structural rules (satisfy by construction)
+
+The plan is rejected unless every rule below holds — design the skeleton to
+meet them, don't hope it does:
+
+- Emit a number of concepts within the Brief's `piece_count` target, inclusive
+  of both bounds.
+- Every concept `id` is unique within the plan.
+- Every Connection's `from` and `to` is the `id` of a concept defined in *this*
+  plan — never an outside, published, or invented id.
+- Every concept is the `from` of at least one Connection — no dead ends.
+- The Connections join all concepts into a single connected graph.
+- At least one concept is `entry_worthy: true`.
+
+If the inputs carry a `prior_violations` array, your previous plan was rejected
+for exactly those reasons — return a new plan that fixes every one of them.\
 """
 
 
