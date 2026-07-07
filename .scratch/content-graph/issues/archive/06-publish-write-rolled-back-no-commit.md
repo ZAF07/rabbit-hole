@@ -1,6 +1,6 @@
 # harness publish reports ok:true but the Content Graph write is silently rolled back
 
-Status: ready-for-agent
+Status: completed
 
 ## Symptom
 
@@ -24,14 +24,15 @@ repo.upsert_piece(Piece(id="diag", title="t", teaser="x", read_time_min=1,
                         blocks=(), topic_ids=("semiconductors",), run_id="diag"))
 # process exits without commit  -> row is ROLLED BACK
 ```
+
 A fresh connection then shows `diag` absent (0). Controlled comparison:
 
-| Scenario | Persists? |
-| --- | --- |
-| upsert **after** a preceding read, exit without commit | ❌ 0 |
-| upsert after a read, then `repo.close()` | ❌ 0 (`close()` rolls back in psycopg3) |
-| upsert with **no** preceding read, exit | ✅ 1 (top-level `transaction()` commits) |
-| upsert after a read, then explicit `conn.commit()` | ✅ 1 |
+| Scenario                                               | Persists?                                |
+| ------------------------------------------------------ | ---------------------------------------- |
+| upsert **after** a preceding read, exit without commit | ❌ 0                                     |
+| upsert after a read, then `repo.close()`               | ❌ 0 (`close()` rolls back in psycopg3)  |
+| upsert with **no** preceding read, exit                | ✅ 1 (top-level `transaction()` commits) |
+| upsert after a read, then explicit `conn.commit()`     | ✅ 1                                     |
 
 ## Root cause
 
@@ -53,11 +54,16 @@ Recommended fix: open the write connection with `autocommit=True` (`psycopg.conn
 
 ## Acceptance criteria
 
-- [ ] After `uv run harness publish <run_id>` exits 0, the survivor Pieces, Connections, and Topic tags are durably present in Postgres (verified from a fresh connection).
-- [ ] The `run_stage_write` path (read-before-write on one connection) commits durably — a regression test asserts rows persist across a new connection.
-- [ ] `publish` never reports `ok: true` while rolling the write back (success ⇔ committed).
-- [ ] The repo's quality gates pass: `uv run ruff check .`, `uv run ruff format`, `uv run mypy src`, `uv run pytest`.
+- [x] After `uv run harness publish <run_id>` exits 0, the survivor Pieces, Connections, and Topic tags are durably present in Postgres (verified from a fresh connection).
+- [x] The `run_stage_write` path (read-before-write on one connection) commits durably — a regression test asserts rows persist across a new connection.
+- [x] `publish` never reports `ok: true` while rolling the write back (success ⇔ committed).
+- [x] The repo's quality gates pass: `uv run ruff check .`, `uv run ruff format`, `uv run mypy src`, `uv run pytest`.
 
 ## Comments
 
 Filed from a `/new-constellation invisible-systems` run (Claude Code generation runtime). The run's workspace under `harness/runs/invisible-systems/` is complete and contract-valid — `plan.md`, both `pieces/<id>/piece.md` (pass `check-piece`, exit 0), grounding ledgers (I8 clean), `connections.md`, `qa.md`, all three human-gate verdicts recorded, and `check-constellation` exit 0. Only the final DB persistence is affected, so once this is fixed a bare re-run of `uv run harness publish invisible-systems` will persist the exact validated survivor set with no regeneration. Diagnostic `diag%` rows were cleaned up after reproduction.
+
+## Completion
+
+- Completed: 2026-07-07
+- Commit: `aebc53bb3171414f19ffa54ca6adb98a023a2517`
