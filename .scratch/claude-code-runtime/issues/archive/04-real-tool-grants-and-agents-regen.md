@@ -31,4 +31,4 @@ This is a spec/regeneration slice: no CLI logic changes. It depends on the comma
 ## Completion
 
 - Completed: 2026-07-07
-- Commit: <to be filled in manually>
+- Commit: `f68d3ed4c9722231bf8ebf3a4857bb78039bd9a4`

@@ -37,10 +37,12 @@ Claude does the creative/judgment work; the seam enforces the binary contract an
 ### 2026-07-07 — build + seam verification (agent)
 
 **Built:**
+
 - `.claude/skills/new-constellation/SKILL.md` — the conductor. Reads `harness/manifest.toml` + the agent cards at run start (does not hard-code the stage list), walks stages under the deliverable-on-disk prerequisite gate, fires the three human gates, and drives the deterministic seam via `uv run harness …`. Explicitly **does not** use `harness run` (that is the DeepSeek/LangGraph runtime); on this path the subagents author and the CLI only checks/records/writes. Notes the required `HARNESS_RUNTIME=claude-code` / `HARNESS_MODEL=…` stamping and the `*.machine.md` preservation the conductor owns.
 - `docs/running-a-generation-run.md` — added a "Two ways to drive a run" split and a `/new-constellation` runtime section; the in-process-driver walkthrough now sits under "Driving the production engine by hand (`harness run`)".
 
 **Seam verified from a real shell** (zero external effects — offline fixture substrate: ScriptedLLM + FakeWebSource + in-memory repo) against a real workspace at `harness/runs/verify-nc/` (populated through QA):
+
 - `uv run harness status verify-nc` → `paused — awaiting verdict at gate: plan`, then after the plan verdict → `awaiting verdict at gate: piece p-container` (gate walk + resume works).
 - `uv run harness check-constellation verify-nc` → `ok=True`, 8 invariant results (I1–I8), none failed, exit 0.
 - `uv run harness check-piece verify-nc p-container` → `ok=True`, exit 0 on the clean Piece; on a slop Piece → `ok=False`, exit 1, violations `[D1 listicle scaffolding, D5 empty restating conclusion]` (fails loud, as the Editor loop requires).

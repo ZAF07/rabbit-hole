@@ -38,4 +38,4 @@ Code review (spec axis) flagged that `harness publish` wrote the survivor set wi
 ## Completion
 
 - Completed: 2026-07-07
-- Commit: <to be filled in manually>
+- Commit: `f68d3ed4c9722231bf8ebf3a4857bb78039bd9a4`
