@@ -37,6 +37,29 @@ def _loads(text: str, purpose: str) -> dict[str, Any]:
     return payload
 
 
+PLAN_RESPONSE_CONTRACT = """\
+## Response contract (machine-read — obey exactly)
+
+Respond with a single JSON object with exactly these two top-level keys:
+
+- `"concepts"`: an array of Piece concepts. Each concept object has:
+  - `"id"` (string) — a stable slug for the Piece, unique within this plan.
+  - `"title"` (string) — the Piece title.
+  - `"premise"` (string) — one or two sentences on what the Piece argues.
+  - `"topics"` (array of strings) — the Topic ids this Piece is tagged with.
+  - `"entry_worthy"` (boolean) — true if this node can open cold as a Daily
+    Feature; at least one concept must be `true`.
+- `"connections"`: an array of directed Connection edges. Each edge object has:
+  - `"from"` (string) — the `id` of the origin concept.
+  - `"to"` (string) — the `id` of the destination concept.
+  - `"hook_angle"` (string) — the intended hook angle for the Connection.
+  - `"rationale"` (string) — why the two Pieces connect.
+
+Use these exact key names. Emit no other top-level keys and no prose outside
+the JSON object.\
+"""
+
+
 def decode_plan(text: str) -> ConstellationPlan:
     """Decode an ``architect.plan`` response.
 
