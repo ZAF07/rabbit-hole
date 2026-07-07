@@ -26,8 +26,12 @@ def load_migrations() -> list[tuple[str, str]]:
 def apply_migrations(conn: psycopg.Connection[Any]) -> list[str]:
     """Apply every migration not yet recorded in ``schema_migrations``.
 
-    Each migration runs in its own transaction and is recorded on success, so a
-    re-run applies only what is pending.
+    Each migration runs in its own top-level transaction and is committed on
+    success, so the work persists for any later connection and a re-run applies
+    only what is pending. The already-applied read stays inside the ledger's
+    own transaction: left outside, it would open a dangling transaction that
+    demotes every per-migration ``transaction()`` to an uncommitted savepoint,
+    silently discarding the DDL when a standalone caller closes the connection.
 
     Args:
         conn: An open connection to the target database.
@@ -41,9 +45,9 @@ def apply_migrations(conn: psycopg.Connection[Any]) -> list[str]:
             " version TEXT PRIMARY KEY,"
             " applied_at TIMESTAMPTZ NOT NULL DEFAULT now())"
         )
-    already_applied = {
-        row[0] for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
-    }
+        already_applied = {
+            row[0] for row in conn.execute("SELECT version FROM schema_migrations").fetchall()
+        }
     applied_now: list[str] = []
     for version, sql_text in load_migrations():
         if version in already_applied:
