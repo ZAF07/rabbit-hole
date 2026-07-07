@@ -22,7 +22,7 @@ The design record is complete, and **all three subsystems' backends are built**:
 | File | What it holds |
 | --- | --- |
 | `CONTEXT.md` | Domain glossary — the canonical vocabulary. Use these terms; don't drift to synonyms listed under *Avoid*. |
-| `docs/adr/0001–0018` | Architecture Decision Records — decisions not to re-litigate. |
+| `docs/adr/0001–0019` | Architecture Decision Records — decisions not to re-litigate. |
 | `docs/experience.md` | Consumption-side design: Piece schema, Content Blocks, Session, Tapestry, retention. |
 | `docs/content-harness.md` | Generation-side design: the pipeline, grounding, learning loop, determinism. |
 | `docs/taxonomy.md` | Seed Topic taxonomy. |
