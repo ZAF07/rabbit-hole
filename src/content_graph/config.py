@@ -1,8 +1,10 @@
 """Store selection by connection config — Docker <-> Supabase is a DSN swap.
 
-The DSN is read from the environment (optionally via a local ``.env`` file),
-never hardcoded, so pointing local dev at Docker and production at Supabase
-requires no code change.
+The DSN is read from the shared ``DATABASE_URL`` (optionally via a local
+``.env`` file), never hardcoded, so pointing local dev at Docker and production
+at Supabase requires no code change. Consumption reads the same variable: both
+subsystems live in one database, kept apart by module and schema ownership, not
+by a physical split (ADR 0018).
 """
 
 import os
@@ -13,7 +15,7 @@ from dotenv import load_dotenv
 
 from content_graph.domain.errors import ContentGraphError
 
-DSN_ENV_VAR = "CONTENT_GRAPH_DSN"
+DSN_ENV_VAR = "DATABASE_URL"
 
 
 class MissingConfigError(ContentGraphError):

@@ -5,16 +5,16 @@ services:
     environment:
       POSTGRES_USER: rabbit
       POSTGRES_PASSWORD: rabbit
-      POSTGRES_DB: content_graph
+      POSTGRES_DB: rabbithole
     ports:
       - "5433:5432"
     volumes:
-      - content_graph_pgdata:/var/lib/postgresql/data
+      - rabbithole_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rabbit -d content_graph"]
+      test: ["CMD-SHELL", "pg_isready -U rabbit -d rabbithole"]
       interval: 2s
       timeout: 2s
       retries: 30
 
 volumes:
-  content_graph_pgdata:
+  rabbithole_pgdata:

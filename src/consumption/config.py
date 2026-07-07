@@ -1,10 +1,11 @@
 """Store selection by connection config — the reader's own tables.
 
-The DSN is read from the environment (optionally via a local ``.env`` file),
-never hardcoded, so pointing local dev at Docker and production at Supabase is
-a config swap, not a code change. This is a *separate* store from the shared
-Content Graph: consumption owns the user / session / path tables and only
-*reads* the Content Graph through its port.
+The DSN is read from the shared ``DATABASE_URL`` (optionally via a local
+``.env`` file), never hardcoded, so pointing local dev at Docker and production
+at Supabase is a config swap, not a code change. Consumption owns the user /
+session / path tables and only *reads* the Content Graph through its port; those
+tables live in the *same* database as the Content Graph, separated by module and
+schema ownership rather than a physical split (ADR 0018).
 """
 
 import os
@@ -15,7 +16,7 @@ from dotenv import load_dotenv
 
 from consumption.domain.errors import ConsumptionError
 
-DSN_ENV_VAR = "CONSUMPTION_DSN"
+DSN_ENV_VAR = "DATABASE_URL"
 
 
 class MissingConfigError(ConsumptionError):

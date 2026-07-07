@@ -20,10 +20,11 @@ from api.config import ADMIN_TOKEN_ENV_VAR, ApiConfig
 from api.generation import GenerationService
 from api.identity import AnonymousIdentity
 from consumption.adapters.clock import SystemClock
-from consumption.adapters.migrate import apply_migrations
+from consumption.adapters.migrate import apply_migrations as apply_consumption_migrations
 from consumption.adapters.postgres import PostgresSessionRepository, PostgresUserRepository
 from consumption.application.reader import ReaderService
 from consumption.config import ConsumptionConfig
+from content_graph.adapters.migrate import apply_migrations as apply_content_graph_migrations
 from content_graph.adapters.postgres import PostgresContentGraphRepository
 from content_graph.config import ContentGraphConfig
 from content_graph.ports.repository import ContentGraphRepository
@@ -37,9 +38,10 @@ DEFAULT_FAN_OUT = 4
 def build_app_from_env() -> FastAPI:
     """Build the production app from environment configuration.
 
-    Opens the Content Graph and consumption Postgres connections, applies the
-    reader's own migrations, and wires the reader service and identity minter
-    into the FastAPI app. When both ``LLM_PROVIDER`` and ``API_ADMIN_TOKEN``
+    Opens the one Postgres database (both subsystems read the same
+    ``DATABASE_URL``; ADR 0018), applies the Content Graph and consumption
+    migrations, and wires the reader service and identity minter into the
+    FastAPI app. When both ``LLM_PROVIDER`` and ``API_ADMIN_TOKEN``
     are configured, it also builds a real generation service (DeepSeek behind
     the ``LLMPort`` via the factory, plus the Playwright web port) and mounts
     the admin trigger — enabling generation is a deployment setting, not a
@@ -49,16 +51,16 @@ def build_app_from_env() -> FastAPI:
     Returns:
         The fully wired FastAPI application.
     """
-    content = PostgresContentGraphRepository.from_config(ContentGraphConfig.from_env())
+    db_conn = psycopg.connect(ConsumptionConfig.from_env().dsn)
+    apply_content_graph_migrations(db_conn)
+    apply_consumption_migrations(db_conn)
 
-    consumption_config = ConsumptionConfig.from_env()
-    reader_conn = psycopg.connect(consumption_config.dsn)
-    apply_migrations(reader_conn)
+    content = PostgresContentGraphRepository.from_config(ContentGraphConfig.from_env())
 
     reader = ReaderService(
         content=content,
-        sessions=PostgresSessionRepository(reader_conn),
-        users=PostgresUserRepository(reader_conn),
+        sessions=PostgresSessionRepository(db_conn),
+        users=PostgresUserRepository(db_conn),
         clock=SystemClock(),
     )
     api_config = ApiConfig.from_env()
